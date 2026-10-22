@@ -1,0 +1,260 @@
+"use client";
+
+import { useState } from "react";
+import type { Analysis, BenchmarkResult } from "@/lib/types";
+import { SAMPLE_RFP } from "@/lib/sample";
+
+type Step = "idle" | "analyzing" | "benchmarking" | "done";
+const MAX_PDF_MB = 3;
+
+const TABS = ["사업개요", "요구사항", "AS-IS", "벤치마킹", "갭분석", "추진전략"] as const;
+type Tab = (typeof TABS)[number];
+
+export default function Home() {
+  const [text, setText] = useState("");
+  const [pdf, setPdf] = useState<{ name: string; base64: string } | null>(null);
+  const [step, setStep] = useState<Step>("idle");
+  const [error, setError] = useState("");
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [bench, setBench] = useState<BenchmarkResult | null>(null);
+  const [benchError, setBenchError] = useState("");
+  const [tab, setTab] = useState<Tab>("사업개요");
+  const [downloading, setDownloading] = useState(false);
+
+  const busy = step === "analyzing" || step === "benchmarking";
+
+  async function onFile(f: File | undefined) {
+    if (!f) return;
+    if (f.size > MAX_PDF_MB * 1024 * 1024) {
+      setError(`PDF는 ${MAX_PDF_MB}MB 이하만 올릴 수 있습니다. 큰 파일은 요구사항 부분 텍스트를 붙여넣어 주세요.`);
+      return;
+    }
+    const buf = await f.arrayBuffer();
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    setPdf({ name: f.name, base64: btoa(bin) });
+    setError("");
+  }
+
+  async function run() {
+    setError("");
+    setBenchError("");
+    setAnalysis(null);
+    setBench(null);
+    setTab("사업개요");
+    setStep("analyzing");
+    try {
+      const r1 = await post("/api/analyze", { text, pdfBase64: pdf?.base64 });
+      setAnalysis(r1);
+      setStep("benchmarking");
+      try {
+        const r2 = await post("/api/benchmark", { analysis: r1 });
+        setBench(r2);
+      } catch (e) {
+        setBenchError(msg(e));
+      }
+      setStep("done");
+    } catch (e) {
+      setError(msg(e));
+      setStep("idle");
+    }
+  }
+
+  async function download() {
+    if (!analysis) return;
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/excel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analysis, bench }),
+      });
+      if (!res.ok) throw new Error("엑셀 생성에 실패했습니다.");
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `RFP분석_${analysis.overview.projectName || "결과"}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      setError(msg(e));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <main>
+      <header className="top">
+        <div>
+          <h1>RFP Analyzer</h1>
+          <p className="sub">제안요청서를 넣으면 사업개요 · 요구사항 · AS-IS · 벤치마킹 · 갭분석 · 추진전략을 엑셀로 정리합니다.</p>
+        </div>
+      </header>
+
+      <section className="card">
+        <div className="row between">
+          <label className="label" htmlFor="rfp">RFP 내용</label>
+          <button className="ghost" onClick={() => { setText(SAMPLE_RFP); setPdf(null); }} disabled={busy}>
+            샘플 RFP 불러오기
+          </button>
+        </div>
+        <textarea
+          id="rfp"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="RFP 본문을 붙여넣거나, 아래에서 PDF를 올려주세요."
+          disabled={busy}
+        />
+        <div className="row between wrap">
+          <label className="file">
+            <input type="file" accept="application/pdf" onChange={(e) => onFile(e.target.files?.[0])} disabled={busy} />
+            {pdf ? `📄 ${pdf.name}` : `PDF 업로드 (최대 ${MAX_PDF_MB}MB)`}
+          </label>
+          {pdf && <button className="ghost" onClick={() => setPdf(null)} disabled={busy}>PDF 제거</button>}
+          <button className="primary" onClick={run} disabled={busy || (!text.trim() && !pdf)}>
+            {busy ? "분석 중…" : "분석 시작"}
+          </button>
+        </div>
+        {error && <p className="error">{error}</p>}
+      </section>
+
+      {step !== "idle" && (
+        <section className="steps">
+          <StepItem label="1. RFP 분석 (개요·요구사항·AS-IS·전략)" state={step === "analyzing" ? "run" : "ok"} />
+          <StepItem
+            label="2. 웹 검색 벤치마킹 · 갭 분석"
+            state={step === "analyzing" ? "wait" : step === "benchmarking" ? "run" : benchError ? "fail" : "ok"}
+          />
+          {benchError && <p className="error small">벤치마킹 실패: {benchError} (1단계 결과는 다운로드할 수 있습니다)</p>}
+        </section>
+      )}
+
+      {analysis && (
+        <section className="card">
+          <div className="row between wrap">
+            <h2>{analysis.overview.projectName}</h2>
+            <button className="primary" onClick={download} disabled={downloading || step === "benchmarking"}>
+              {downloading ? "생성 중…" : "엑셀 다운로드"}
+            </button>
+          </div>
+          <nav className="tabs">
+            {TABS.map((t) => (
+              <button key={t} className={t === tab ? "tab on" : "tab"} onClick={() => setTab(t)}>{t}</button>
+            ))}
+          </nav>
+          <div className="tabbody">
+            {tab === "사업개요" && <OverviewView a={analysis} />}
+            {tab === "요구사항" && (
+              <Table
+                cols={[["id", "ID"], ["category", "분류"], ["name", "요구사항명"], ["description", "상세"], ["priority", "중요도"], ["response", "대응방안"]]}
+                rows={analysis.requirements}
+              />
+            )}
+            {tab === "AS-IS" && (
+              <Table cols={[["area", "영역"], ["current", "현행"], ["issue", "문제점"], ["toConfirm", "확인 필요"]]} rows={analysis.asis} />
+            )}
+            {tab === "벤치마킹" && (
+              <Pending ready={!!bench} failed={!!benchError}>
+                <Table
+                  cols={[["organization", "기관"], ["caseName", "사례"], ["year", "연도"], ["implication", "시사점"], ["sourceUrl", "출처"]]}
+                  rows={bench?.benchmarks ?? []}
+                />
+              </Pending>
+            )}
+            {tab === "갭분석" && (
+              <Pending ready={!!bench} failed={!!benchError}>
+                <Table
+                  cols={[["area", "영역"], ["asis", "AS-IS"], ["tobe", "TO-BE"], ["gap", "Gap"], ["task", "개선과제"], ["priority", "우선순위"]]}
+                  rows={bench?.gaps ?? []}
+                />
+              </Pending>
+            )}
+            {tab === "추진전략" && (
+              <Table
+                cols={[["strategy", "전략"], ["description", "내용"], ["linkedRequirements", "연계 요구사항"], ["differentiation", "차별화"]]}
+                rows={analysis.strategies}
+              />
+            )}
+          </div>
+        </section>
+      )}
+
+      <footer className="foot">AI가 생성한 초안입니다. 제안서 반영 전 반드시 검토하세요. 대외비 RFP는 사내 보안 정책을 확인한 뒤 사용하세요.</footer>
+    </main>
+  );
+}
+
+function StepItem({ label, state }: { label: string; state: "wait" | "run" | "ok" | "fail" }) {
+  const icon = { wait: "○", run: "◐", ok: "●", fail: "✕" }[state];
+  return <div className={`step ${state}`}><span className="icon">{icon}</span>{label}</div>;
+}
+
+function Pending({ ready, failed, children }: { ready: boolean; failed: boolean; children: React.ReactNode }) {
+  if (failed) return <p className="muted">벤치마킹 단계가 실패했습니다.</p>;
+  if (!ready) return <p className="muted">웹 검색으로 사례를 조사하는 중입니다. 1~2분 걸릴 수 있습니다.</p>;
+  return <>{children}</>;
+}
+
+function OverviewView({ a }: { a: Analysis }) {
+  const o = a.overview;
+  const rows: [string, React.ReactNode][] = [
+    ["발주기관", o.client],
+    ["사업기간", o.period],
+    ["사업예산", o.budget],
+    ["추진배경", o.background],
+    ["사업목적", o.purpose],
+    ["사업목표", <ul key="g">{o.goals.map((g, i) => <li key={i}>{g}</li>)}</ul>],
+    ["사업범위", <ul key="s">{o.scope.map((g, i) => <li key={i}>{g}</li>)}</ul>],
+    ["기대효과", <ul key="e">{o.expectedEffects.map((e, i) => <li key={i}><b>[{e.type}]</b> {e.effect}</li>)}</ul>],
+  ];
+  return (
+    <dl className="kv">
+      {rows.map(([k, v]) => (
+        <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+      ))}
+    </dl>
+  );
+}
+
+function Table<T extends object>({ cols, rows }: { cols: [string, string][]; rows: T[] }) {
+  if (!rows.length) return <p className="muted">결과가 없습니다.</p>;
+  return (
+    <div className="tablewrap">
+      <table>
+        <thead><tr>{cols.map(([, h]) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              {cols.map(([k]) => {
+                const v = String((r as Record<string, unknown>)[k] ?? "");
+                return (
+                  <td key={k}>
+                    {k === "sourceUrl" && v ? (
+                      <>
+                        <a href={v} target="_blank" rel="noreferrer">링크</a>
+                        {"verified" in r && !(r as { verified: boolean }).verified && <span className="warn"> 확인 필요</span>}
+                      </>
+                    ) : v}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+async function post(url: string, body: unknown) {
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({ error: res.status === 413 ? "파일이 너무 큽니다." : `서버 오류 (${res.status})` }));
+  if (!res.ok || data.error) throw new Error(data.error || `서버 오류 (${res.status})`);
+  return data;
+}
+
+function msg(e: unknown) {
+  return e instanceof Error ? e.message : String(e);
+}
