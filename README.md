@@ -42,6 +42,13 @@ AI는 Google Gemini API를 사용합니다. 무료 키로 동작하며, 무료 �
 - **Gemini 무료 등급은 입력을 Google이 개선·사람 검토에 사용할 수 있습니다. 실제 고객 RFP는 유료 등급 키로만 사용하세요.**
 - 점검 기준과 이력: `SECURITY.md`
 
+## 개발 하네스
+
+- 테스트: `npm test` (vitest 64개, 가짜 Gemini로 외부 호출 없음)
+- 통합 점검: `npm run check` (타입검사·테스트·보안 스캔·의존성 감사·빌드), GitHub Actions CI에서 자동 실행
+- 요구사항 추적: `npm run trace` (docs/REQUIREMENTS.md ↔ 테스트)
+- Claude Code 에이전트·스킬: `.claude/agents`, `.claude/skills` (사용법은 `CLAUDE.md`)
+
 ## 로컬 실행
 
 ```bash
@@ -53,6 +60,10 @@ npm run dev                   # http://localhost:3000
 ## 구조
 
 ```
+docs/REQUIREMENTS.md      요구사항 (ID·수용 기준·추적표)
+tests/                    vitest 테스트, fixtures
+scripts/                  보안 스캔, 요구사항 추적
+.claude/                  에이전트·스킬
 app/page.tsx              화면 (입력 → 진행 단계 → 탭 미리보기 → 엑셀 다운로드)
 app/api/analyze           1단계: RFP 분석 (구조화 출력)
 app/api/benchmark         2단계: 벤치마킹 + 갭 분석

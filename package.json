@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "security:scan": "node scripts/security-scan.mjs",
-    "check": "npm run typecheck && npm test && npm run security:scan && npm audit --omit=dev --audit-level=high && npm run build"
+    "check": "npm run typecheck && npm test && npm run security:scan && npm audit --omit=dev --audit-level=high && npm run build",
+    "trace": "node scripts/trace.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.31.0",
