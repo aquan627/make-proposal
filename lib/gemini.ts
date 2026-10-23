@@ -1,4 +1,4 @@
-import { GoogleGenAI, ApiError } from "@google/genai";
+import { GoogleGenAI, ApiError, ThinkingLevel } from "@google/genai";
 import type { Analysis, BenchmarkResult } from "./types";
 import { safeUrl } from "./pii";
 
@@ -24,6 +24,7 @@ export function friendlyError(e: unknown): string {
     if (e.status >= 500) return "Gemini 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.";
     return `AI 요청이 실패했습니다 (오류 코드 ${e.status}). 잠시 후 다시 시도해 주세요.`;
   }
+  if (e instanceof TypeError && /fetch/i.test(e.message)) return "AI 서버(Gemini)에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   // 내부 오류 상세는 화면에 노출하지 않음 (직접 만든 안내 메시지만 통과)
   if (e instanceof Error && /[가-힣]/.test(e.message)) return e.message;
   return "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
@@ -172,6 +173,8 @@ export async function analyzeRfp(maskedText: string): Promise<Analysis> {
       responseMimeType: "application/json",
       responseJsonSchema: analysisSchema,
       maxOutputTokens: 32000,
+      // 응답 속도 우선 (긴 대기로 연결이 끊기는 것을 줄임)
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
     },
   });
 
@@ -212,8 +215,8 @@ ${JSON.stringify(brief, null, 2)}
     model: MODEL,
     contents: prompt,
     config: USE_SEARCH
-      ? { tools: [{ googleSearch: {} }], maxOutputTokens: 16000 }
-      : { responseMimeType: "application/json", responseJsonSchema: benchSchema, maxOutputTokens: 16000 },
+      ? { tools: [{ googleSearch: {} }], maxOutputTokens: 16000, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+      : { responseMimeType: "application/json", responseJsonSchema: benchSchema, maxOutputTokens: 16000, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
   });
 
   const parsed = parseJson(res.text);

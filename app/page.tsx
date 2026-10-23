@@ -286,12 +286,32 @@ async function logout() {
   window.location.href = "/login";
 }
 
-async function post(url: string, body: unknown) {
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({ error: res.status === 413 ? "파일이 너무 큽니다." : `서버 오류 (${res.status})` }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function post(url: string, body: unknown): Promise<any> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch {
+    throw new Error("서버와 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.");
+  }
   if (res.status === 401) {
     window.location.href = "/login";
     throw new Error("로그인이 필요합니다.");
+  }
+  let text = "";
+  try {
+    // 처리 중에는 연결 유지용 공백이 먼저 오고, 마지막에 JSON이 옵니다.
+    text = await res.text();
+  } catch {
+    throw new Error("처리 도중 연결이 끊겼습니다. 회사망 프록시가 긴 요청을 끊었을 수 있습니다. 다시 시도하거나 RFP 일부만 넣어보세요.");
+  }
+  let data: { error?: string } & Record<string, unknown>;
+  try {
+    data = JSON.parse(text.trim());
+  } catch {
+    if (res.status === 413) throw new Error("파일이 너무 큽니다. 3MB 이하 PDF나 텍스트로 넣어주세요.");
+    if (res.status === 504) throw new Error("처리 시간이 초과됐습니다. RFP 분량을 줄여 다시 시도해 주세요.");
+    throw new Error(`서버 오류가 발생했습니다 (${res.status}). 잠시 후 다시 시도해 주세요.`);
   }
   if (!res.ok || data.error) throw new Error(data.error || `서버 오류 (${res.status})`);
   return data;
