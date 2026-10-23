@@ -307,6 +307,8 @@ async function post(url: string, body: unknown): Promise<any> {
   } catch {
     if (res.status === 413) throw new Error("파일이 너무 큽니다. 3MB 이하 PDF나 텍스트로 넣어주세요.");
     if (res.status === 504) throw new Error("처리 시간이 초과됐습니다. RFP 분량을 줄여 다시 시도해 주세요.");
+    // 200인데 결과 JSON이 없으면 서버가 제한 시간(300초)에 걸려 응답 도중 종료된 경우
+    if (res.ok) throw new Error("처리 시간(5분)이 초과돼 응답이 중단됐습니다. RFP를 요구사항 부분 위주로 줄이거나 나눠서 다시 시도해 주세요.");
     throw new Error(`서버 오류가 발생했습니다 (${res.status}). 잠시 후 다시 시도해 주세요.`);
   }
   if (!res.ok || data.error) throw new Error(data.error || `서버 오류 (${res.status})`);

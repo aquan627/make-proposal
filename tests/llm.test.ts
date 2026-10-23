@@ -50,6 +50,28 @@ describe("IFR-007 OpenAI Responses API 구조화 출력", () => {
     expect(s.properties.b.items.required).toEqual(["c"]);
   });
 
+  it("NFR-001 1단계는 요구사항·개요 두 호출을 동시에 실행해 결과를 합친다", async () => {
+    let inFlight = 0, peak = 0;
+    create.mockImplementation(async () => {
+      inFlight++; peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return reply(analysis);
+    });
+    const out = await analyzeRfp("x");
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(peak).toBe(2);
+    expect(create.mock.calls.map((c) => c[0].text.format.name).sort()).toEqual(["rfp_analysis", "rfp_overview"]);
+    expect(out.requirements).toEqual(analysis.requirements);
+    expect(out.strategies).toEqual(analysis.strategies);
+  });
+
+  it("NFR-001 Vercel 300초 제한 안에 끝나도록 재시도 없이 300초 미만에서 끊는다", async () => {
+    const { AI_TIMEOUT_MS } = await import("@/lib/llm");
+    expect(AI_TIMEOUT_MS).toBeLessThan(290_000);
+    expect(friendlyError(Object.assign(new (APIError as any)(undefined), { name: "APIConnectionTimeoutError" }))).toMatch(/시간이 초과/);
+  });
+
   it("출력이 길이 제한에 잘리면 안내 문구로 실패한다", async () => {
     create.mockResolvedValue({ ...reply({}), status: "incomplete", incomplete_details: { reason: "max_output_tokens" } });
     await expect(analyzeRfp("x")).rejects.toThrow(/잘렸습니다/);

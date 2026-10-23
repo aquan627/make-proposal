@@ -8,17 +8,21 @@ export const MODEL = process.env.OPENAI_MODEL || "gpt-6.1-sol";
 // 웹 검색 기반 벤치마킹 (검색 도구 호출 비용이 추가됨)
 const USE_SEARCH = (process.env.OPENAI_SEARCH || "").toLowerCase() === "on";
 const EFFORT = (process.env.OPENAI_REASONING_EFFORT || "low") as "none" | "minimal" | "low" | "medium" | "high";
+export const AI_TIMEOUT_MS = 250_000;
 
 function client() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.");
-  return new OpenAI({ apiKey, maxRetries: 1, timeout: 280_000 });
+  // Vercel 함수 제한(300초) 안에 안내 문구를 돌려주도록 재시도 없이 250초에서 끊음
+  return new OpenAI({ apiKey, maxRetries: 0, timeout: AI_TIMEOUT_MS });
 }
 
 export function friendlyError(e: unknown): string {
   if (e instanceof APIError) {
     const code = String((e as { code?: unknown }).code ?? "");
     if (code === "insufficient_quota") return "OpenAI API 크레딧이 부족합니다. platform.openai.com의 Billing에서 충전해 주세요.";
+    if (e.name === "APIConnectionTimeoutError" || /timed? ?out/i.test(e.message))
+      return "AI 처리 시간이 초과됐습니다. RFP 분량을 줄이거나(요구사항 부분 위주) OPENAI_MODEL을 더 빠른 모델(gpt-6-luna)로 바꿔 다시 시도해 주세요.";
     if (e.status === 429) return "OpenAI 호출 한도를 넘었습니다. 1~2분 뒤 다시 시도해 주세요.";
     if (e.status === 401) return "OpenAI API 키가 올바르지 않습니다. Vercel의 OPENAI_API_KEY 값을 확인하세요.";
     if (e.status === 403) return "이 API 키로는 해당 모델이나 기능을 쓸 수 없습니다. OpenAI 프로젝트 권한을 확인하세요.";
@@ -77,6 +81,8 @@ const str = { type: "string" } as const;
 const strArr = { type: "array", items: str } as const;
 const level = { type: "string", enum: ["상", "중", "하"] } as const;
 
+// 1단계는 처리 시간을 줄이기 위해 두 호출로 나눠 동시에 실행합니다.
+//   A. 요구사항 목록(출력이 가장 큼)   B. 사업개요·AS-IS·추진전략·벤치마킹 주제
 const analysisSchema = {
   type: "object",
   required: ["overview", "requirements", "asis", "strategies", "benchmarkTopics"],
@@ -152,6 +158,28 @@ const analysisSchema = {
   },
 };
 
+const P = analysisSchema.properties;
+const requirementsSchema = { type: "object", required: ["requirements"], properties: { requirements: P.requirements } };
+const overviewSchema = {
+  type: "object",
+  required: ["overview", "asis", "strategies", "benchmarkTopics"],
+  properties: {
+    overview: P.overview,
+    asis: P.asis,
+    strategies: {
+      ...P.strategies,
+      items: {
+        ...P.strategies.items,
+        properties: {
+          ...P.strategies.items.properties,
+          linkedRequirements: { ...str, description: "연계 요구사항 ID 목록(쉼표 구분). RFP에 표기된 요구사항 ID를 그대로 쓰고, ID가 없으면 요구사항 영역명" },
+        },
+      },
+    },
+    benchmarkTopics: P.benchmarkTopics,
+  },
+};
+
 const benchSchema = {
   type: "object",
   required: ["benchmarks", "gaps"],
@@ -208,26 +236,43 @@ function parseJson(text: string | undefined) {
 
 // maskedText: 개인정보 마스킹을 거친 텍스트만 받습니다.
 export async function analyzeRfp(maskedText: string): Promise<Analysis> {
-  const res = await callLLM({
-    instructions: RULES,
-    input: `다음 RFP를 분석하세요.
+  const input = (task: string) => `${task}
 
 <rfp>
 ${maskedText}
-</rfp>`,
-    schema: analysisSchema,
-    name: "rfp_analysis",
-    maxTokens: 32000,
-  });
+</rfp>`;
+  const [reqRes, ovRes] = await Promise.all([
+    callLLM({
+      instructions: RULES,
+      input: input("다음 RFP에서 요구사항을 빠짐없이 추출하고 분류·중요도·난이도·대응방안을 작성하세요."),
+      schema: requirementsSchema,
+      name: "rfp_analysis",
+      maxTokens: 24000,
+    }),
+    callLLM({
+      instructions: RULES,
+      input: input("다음 RFP의 사업개요, 현행(AS-IS) 현황, 추진전략 4~6개, 벤치마킹 조사 주제를 작성하세요. 요구사항 목록 자체는 쓰지 않습니다."),
+      schema: overviewSchema,
+      name: "rfp_overview",
+      maxTokens: 12000,
+    }),
+  ]);
 
-  if (res.truncated) {
+  if (reqRes.truncated || ovRes.truncated) {
     throw new Error("RFP가 너무 길어 결과가 잘렸습니다. 요구사항 부분만 나눠서 넣어보세요.");
   }
-  const parsed = parseJson(res.text);
-  if (!parsed?.overview || !Array.isArray(parsed.requirements)) {
+  const req = parseJson(reqRes.text);
+  const ov = parseJson(ovRes.text);
+  if (!ov?.overview || !Array.isArray(req?.requirements)) {
     throw new Error("분석 결과를 해석하지 못했습니다. 다시 시도해 주세요.");
   }
-  return parsed as Analysis;
+  return {
+    overview: ov.overview,
+    requirements: req.requirements,
+    asis: ov.asis ?? [],
+    strategies: ov.strategies ?? [],
+    benchmarkTopics: ov.benchmarkTopics ?? [],
+  } as Analysis;
 }
 
 export async function benchmarkAndGap(analysis: Analysis): Promise<BenchmarkResult> {
