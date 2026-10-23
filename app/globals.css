@@ -69,3 +69,12 @@ a { color: var(--accent); }
   .kv > div { grid-template-columns: 1fr; gap: 2px; }
   .primary { margin-left: 0; width: 100%; }
 }
+.pii { font-size: 13px; border-radius: 8px; padding: 8px 12px; margin: 10px 0 0; }
+.warn-box { background: var(--soft); color: var(--warn); }
+.ok-box { background: var(--soft); color: var(--muted); }
+.consent { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.consent input { margin-top: 3px; }
+.login { min-height: 80vh; display: grid; place-items: center; }
+.login .card { width: 100%; max-width: 380px; display: grid; gap: 10px; }
+.login input[type="password"] { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+.login .primary { margin-left: 0; }

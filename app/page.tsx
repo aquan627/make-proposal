@@ -3,6 +3,9 @@
 import { useState } from "react";
 import type { Analysis, BenchmarkResult } from "@/lib/types";
 import { SAMPLE_RFP } from "@/lib/sample";
+import { maskPII, reportText, reportTotal, safeUrl, type MaskReport } from "@/lib/pii";
+
+const PAID = process.env.NEXT_PUBLIC_GEMINI_PAID === "on";
 
 type Step = "idle" | "analyzing" | "benchmarking" | "done";
 const MAX_PDF_MB = 3;
@@ -20,6 +23,12 @@ export default function Home() {
   const [benchError, setBenchError] = useState("");
   const [tab, setTab] = useState<Tab>("사업개요");
   const [downloading, setDownloading] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [sentMasking, setSentMasking] = useState<MaskReport | null>(null);
+
+  // 입력 즉시 개인정보 탐지 결과를 보여줌 (서버에서도 한 번 더 마스킹)
+  const preview = text.trim() ? maskPII(text).report : {};
+  const previewCount = reportTotal(preview);
 
   const busy = step === "analyzing" || step === "benchmarking";
 
@@ -43,10 +52,16 @@ export default function Home() {
     setAnalysis(null);
     setBench(null);
     setTab("사업개요");
+    setSentMasking(null);
     setStep("analyzing");
     try {
-      const r1 = await post("/api/analyze", { text, pdfBase64: pdf?.base64 });
-      setAnalysis(r1);
+      // 텍스트는 브라우저에서 먼저 마스킹한 뒤 전송
+      const body = text.trim() ? { text: maskPII(text).text, consent } : { pdfBase64: pdf?.base64, consent };
+      const r1 = await post("/api/analyze", body);
+      const { masking, maskedCount, ...rest } = r1;
+      setSentMasking(text.trim() ? preview : masking ?? {});
+      void maskedCount;
+      setAnalysis(rest);
       setStep("benchmarking");
       try {
         const r2 = await post("/api/benchmark", { analysis: r1 });
@@ -74,7 +89,7 @@ export default function Home() {
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `RFP분석_${analysis.overview.projectName || "결과"}.xlsx`;
+      a.download = `RFP분석_${String(analysis.overview.projectName || "결과").replace(/[\\/:*?"<>|]/g, "")}.xlsx`;
       a.click();
       URL.revokeObjectURL(a.href);
     } catch (e) {
@@ -86,11 +101,12 @@ export default function Home() {
 
   return (
     <main>
-      <header className="top">
+      <header className="top row between wrap">
         <div>
           <h1>RFP Analyzer</h1>
           <p className="sub">제안요청서를 넣으면 사업개요 · 요구사항 · AS-IS · 벤치마킹 · 갭분석 · 추진전략을 엑셀로 정리합니다.</p>
         </div>
+        <button className="ghost" onClick={logout}>로그아웃</button>
       </header>
 
       <section className="card">
@@ -113,10 +129,26 @@ export default function Home() {
             {pdf ? `📄 ${pdf.name}` : `PDF 업로드 (최대 ${MAX_PDF_MB}MB)`}
           </label>
           {pdf && <button className="ghost" onClick={() => setPdf(null)} disabled={busy}>PDF 제거</button>}
-          <button className="primary" onClick={run} disabled={busy || (!text.trim() && !pdf)}>
+          <button className="primary" onClick={run} disabled={busy || !consent || (!text.trim() && !pdf)}>
             {busy ? "분석 중…" : "분석 시작"}
           </button>
         </div>
+        {text.trim() && (
+          <p className={previewCount ? "pii warn-box" : "pii ok-box"}>
+            {previewCount
+              ? `개인정보로 보이는 항목 ${previewCount}건을 가린 뒤 전송합니다: ${reportText(preview)}`
+              : "개인정보로 보이는 항목이 없습니다. (이름·주소 등 형식이 없는 정보는 직접 확인하세요)"}
+          </p>
+        )}
+        {pdf && !text.trim() && <p className="pii ok-box">PDF는 서버에서 글자만 추출하고 개인정보를 가린 뒤 전송합니다. 원본 파일은 외부 AI로 보내거나 저장하지 않습니다.</p>}
+        <label className="consent">
+          <input id="consent" type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={busy} />
+          <span>
+            {PAID
+              ? "입력 내용이 Google Gemini API(유료 등급, 학습 미사용)로 전송됨을 확인했습니다. 대외비 RFP는 회사 보안 정책에 따라 사용합니다."
+              : "입력 내용이 Google Gemini 무료 API로 전송되며, 무료 등급에서는 Google이 서비스 개선과 사람 검토에 사용할 수 있음을 확인했습니다. 대외비·고객 정보가 포함된 RFP는 넣지 않습니다."}
+          </span>
+        </label>
         {error && <p className="error">{error}</p>}
       </section>
 
@@ -127,6 +159,7 @@ export default function Home() {
             label="2. 벤치마킹 · 갭 분석"
             state={step === "analyzing" ? "wait" : step === "benchmarking" ? "run" : benchError ? "fail" : "ok"}
           />
+          {sentMasking && reportTotal(sentMasking) > 0 && <p className="small muted">전송 전 개인정보 마스킹: {reportText(sentMasking)}</p>}
           {benchError && <p className="error small">벤치마킹 실패: {benchError} (1단계 결과는 다운로드할 수 있습니다)</p>}
         </section>
       )}
@@ -184,7 +217,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer className="foot">AI가 생성한 초안입니다. 제안서 반영 전 반드시 검토하세요. 대외비 RFP는 사내 보안 정책을 확인한 뒤 사용하세요.</footer>
+      <footer className="foot">AI가 생성한 초안입니다. 제안서 반영 전 반드시 검토하세요. 입력한 RFP와 결과는 이 서버에 저장되지 않습니다.</footer>
     </main>
   );
 }
@@ -235,7 +268,7 @@ function Table<T extends object>({ cols, rows }: { cols: [string, string][]; row
                 return (
                   <td key={k}>
                     {k === "sourceUrl" ? (
-                      v ? <a href={v} target="_blank" rel="noreferrer">열기</a> : <span className="warn">확인 필요</span>
+                      safeUrl(v) ? <a href={safeUrl(v)} target="_blank" rel="noopener noreferrer">열기</a> : <span className="warn">확인 필요</span>
                     ) : v}
                   </td>
                 );
@@ -248,9 +281,18 @@ function Table<T extends object>({ cols, rows }: { cols: [string, string][]; row
   );
 }
 
+async function logout() {
+  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+  window.location.href = "/login";
+}
+
 async function post(url: string, body: unknown) {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({ error: res.status === 413 ? "파일이 너무 큽니다." : `서버 오류 (${res.status})` }));
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("로그인이 필요합니다.");
+  }
   if (!res.ok || data.error) throw new Error(data.error || `서버 오류 (${res.status})`);
   return data;
 }

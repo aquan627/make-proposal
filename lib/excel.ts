@@ -46,6 +46,15 @@ function table(wb: ExcelJS.Workbook, name: string, title: string, cols: Col[], r
   return ws;
 }
 
+// 엑셀 수식으로 해석될 수 있는 값(=, +, @ 로 시작)은 문자로 고정
+function cellText(v: unknown) {
+  const s = typeof v === "string" ? v : v == null ? "" : String(v);
+  return /^[=+@]/.test(s) ? "'" + s : s;
+}
+function clean<T extends object>(rows: T[] | undefined): Record<string, unknown>[] {
+  return (rows ?? []).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === "number" ? v : cellText(v)])));
+}
+
 export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "RFP Analyzer";
@@ -72,7 +81,7 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
   pairs.forEach(([k, v], i) => {
     const row = ws.getRow(i + 3);
     row.getCell(1).value = k;
-    row.getCell(2).value = v;
+    row.getCell(2).value = cellText(v);
     row.getCell(1).fill = LABEL_FILL;
     row.getCell(1).font = { name: FONT, bold: true };
     row.getCell(2).font = { name: FONT, size: 10 };
@@ -93,7 +102,7 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
     { header: "중요도", key: "priority", width: 8 },
     { header: "난이도", key: "difficulty", width: 8 },
     { header: "대응방안", key: "response", width: 50 },
-  ], a.requirements);
+  ], clean(a.requirements));
 
   // 3. AS-IS
   table(wb, "3.AS-IS분석", "현행(AS-IS) 분석 — RFP 기준", [
@@ -101,7 +110,7 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
     { header: "현행 현황", key: "current", width: 50 },
     { header: "문제점·한계", key: "issue", width: 45 },
     { header: "확인 필요사항", key: "toConfirm", width: 40 },
-  ], a.asis);
+  ], clean(a.asis));
 
   // 4. 벤치마킹
   table(wb, "4.벤치마킹", b?.searched ? "동종업계 벤치마킹" : "동종업계 벤치마킹 (웹 검색 미사용 — 출처 확인 필요)", [
@@ -113,7 +122,7 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
     { header: "출처", key: "sourceName", width: 30 },
     { header: "링크", key: "sourceUrl", width: 40 },
     { header: "출처 검증", key: "verified", width: 10 },
-  ], (b?.benchmarks ?? []).map((x) => ({ ...x, verified: x.verified ? "검색 확인" : "확인 필요" })));
+  ], clean((b?.benchmarks ?? []).map((x) => ({ ...x, verified: x.verified ? "검색 확인" : "확인 필요" }))));
 
   // 5. 갭 분석
   table(wb, "5.갭분석", "갭(Gap) 분석", [
@@ -124,7 +133,7 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
     { header: "Gap", key: "gap", width: 35 },
     { header: "개선과제", key: "task", width: 35 },
     { header: "우선순위", key: "priority", width: 9 },
-  ], b?.gaps ?? []);
+  ], clean(b?.gaps));
 
   // 6. 추진전략
   table(wb, "6.추진전략", "추진전략", [
@@ -133,7 +142,7 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
     { header: "세부 내용", key: "description", width: 60 },
     { header: "연계 요구사항", key: "linkedRequirements", width: 22 },
     { header: "차별화 포인트", key: "differentiation", width: 45 },
-  ], a.strategies.map((s, i) => ({ no: i + 1, ...s })));
+  ], clean(a.strategies).map((s, i) => ({ no: i + 1, ...s })));
 
   const arr = await wb.xlsx.writeBuffer();
   return Buffer.from(arr);

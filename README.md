@@ -21,12 +21,22 @@ AI는 Google Gemini API를 사용합니다. 무료 키로 동작하며, 무료 �
    git push -u origin main
    ```
 2. vercel.com → Add New → Project → 해당 저장소 Import (프레임워크는 Next.js 자동 인식)
-3. Environment Variables에 `GEMINI_API_KEY` 추가 → Deploy
-   - 키 발급: https://aistudio.google.com/apikey (Google 계정으로 무료 발급)
+3. Environment Variables 추가 → Deploy
+   - `GEMINI_API_KEY`: https://aistudio.google.com/apikey 에서 무료 발급
+   - `APP_PASSWORD`: 팀에 공유할 접근 비밀번호 (8자 이상, 미설정 시 앱이 잠김)
 
 선택 환경변수
 - `GEMINI_MODEL`: 모델 변경 (기본 `gemini-3.8-flash`)
 - `GEMINI_SEARCH=on`: Google 검색 기반 벤치마킹 (유료 키 필요)
+- `NEXT_PUBLIC_GEMINI_PAID=on`: 유료 키 사용 시 (동의 문구가 바뀜)
+
+## 보안
+
+- 외부 AI 전송 전 개인정보(주민번호·전화·이메일·계좌·카드·IP·성명 등)를 자동 마스킹
+- PDF는 서버에서 글자만 추출해 마스킹 후 전송, 원본은 외부로 보내지 않음
+- 비밀번호 로그인, 호출 횟수 제한, CSRF 차단, 보안 헤더
+- **Gemini 무료 등급은 입력을 Google이 개선·사람 검토에 사용할 수 있습니다. 실제 고객 RFP는 유료 등급 키로만 사용하세요.**
+- 점검 기준과 이력: `SECURITY.md`
 
 ## 로컬 실행
 
@@ -44,6 +54,9 @@ app/api/analyze           1단계: RFP 분석 (구조화 출력)
 app/api/benchmark         2단계: 벤치마킹 + 갭 분석
 app/api/excel             엑셀 생성
 lib/gemini.ts             LLM 호출 (다른 모델·사내 LLM 전환 시 이 파일만 교체)
+lib/pii.ts                개인정보 마스킹, 링크 검증
+lib/auth.ts, proxy.ts     로그인·세션
+lib/guard.ts              요청 크기·출처·호출 횟수 제한
 lib/excel.ts              엑셀 서식
 lib/sample.ts             데모용 가상 RFP
 ```
