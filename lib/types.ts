@@ -49,6 +49,7 @@ export type Benchmark = {
   summary: string;
   implication: string;
   sourceUrl: string;
+  sourceName: string;
   verified: boolean;
 };
 
@@ -65,4 +66,5 @@ export type Gap = {
 export type BenchmarkResult = {
   benchmarks: Benchmark[];
   gaps: Gap[];
+  searched: boolean;
 };

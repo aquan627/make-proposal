@@ -104,13 +104,14 @@ export async function buildWorkbook(a: Analysis, b: BenchmarkResult | null): Pro
   ], a.asis);
 
   // 4. 벤치마킹
-  table(wb, "4.벤치마킹", "동종업계 벤치마킹", [
+  table(wb, "4.벤치마킹", b?.searched ? "동종업계 벤치마킹" : "동종업계 벤치마킹 (웹 검색 미사용 — 출처 확인 필요)", [
     { header: "기관", key: "organization", width: 16 },
     { header: "사례", key: "caseName", width: 28 },
     { header: "연도", key: "year", width: 8 },
     { header: "사례 요약", key: "summary", width: 50 },
     { header: "본 사업 시사점", key: "implication", width: 45 },
-    { header: "출처", key: "sourceUrl", width: 40 },
+    { header: "출처", key: "sourceName", width: 30 },
+    { header: "링크", key: "sourceUrl", width: 40 },
     { header: "출처 검증", key: "verified", width: 10 },
   ], (b?.benchmarks ?? []).map((x) => ({ ...x, verified: x.verified ? "검색 확인" : "확인 필요" })));
 

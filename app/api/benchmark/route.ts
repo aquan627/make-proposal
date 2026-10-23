@@ -1,4 +1,4 @@
-import { benchmarkAndGap } from "@/lib/claude";
+import { benchmarkAndGap, friendlyError } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -9,6 +9,6 @@ export async function POST(req: Request) {
     const result = await benchmarkAndGap(analysis);
     return Response.json(result);
   } catch (e) {
-    return Response.json({ error: e instanceof Error ? e.message : "알 수 없는 오류" }, { status: 500 });
+    return Response.json({ error: friendlyError(e) }, { status: 500 });
   }
 }

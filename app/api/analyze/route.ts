@@ -1,4 +1,4 @@
-import { analyzeRfp } from "@/lib/claude";
+import { analyzeRfp, friendlyError } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -12,10 +12,6 @@ export async function POST(req: Request) {
     const analysis = await analyzeRfp({ text: text?.trim() || undefined, pdfBase64 });
     return Response.json(analysis);
   } catch (e) {
-    return Response.json({ error: errMsg(e) }, { status: 500 });
+    return Response.json({ error: friendlyError(e) }, { status: 500 });
   }
-}
-
-function errMsg(e: unknown) {
-  return e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.";
 }

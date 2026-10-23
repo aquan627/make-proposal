@@ -124,7 +124,7 @@ export default function Home() {
         <section className="steps">
           <StepItem label="1. RFP 분석 (개요·요구사항·AS-IS·전략)" state={step === "analyzing" ? "run" : "ok"} />
           <StepItem
-            label="2. 웹 검색 벤치마킹 · 갭 분석"
+            label="2. 벤치마킹 · 갭 분석"
             state={step === "analyzing" ? "wait" : step === "benchmarking" ? "run" : benchError ? "fail" : "ok"}
           />
           {benchError && <p className="error small">벤치마킹 실패: {benchError} (1단계 결과는 다운로드할 수 있습니다)</p>}
@@ -157,8 +157,11 @@ export default function Home() {
             )}
             {tab === "벤치마킹" && (
               <Pending ready={!!bench} failed={!!benchError}>
+                {bench && !bench.searched && (
+                  <p className="callout">웹 검색 없이 AI가 알고 있는 사례로 작성한 초안입니다. 사례명·연도·수치는 출처를 확인한 뒤 사용하세요.</p>
+                )}
                 <Table
-                  cols={[["organization", "기관"], ["caseName", "사례"], ["year", "연도"], ["implication", "시사점"], ["sourceUrl", "출처"]]}
+                  cols={[["organization", "기관"], ["caseName", "사례"], ["year", "연도"], ["implication", "시사점"], ["sourceName", "출처"], ["sourceUrl", "링크"]]}
                   rows={bench?.benchmarks ?? []}
                 />
               </Pending>
@@ -193,7 +196,7 @@ function StepItem({ label, state }: { label: string; state: "wait" | "run" | "ok
 
 function Pending({ ready, failed, children }: { ready: boolean; failed: boolean; children: React.ReactNode }) {
   if (failed) return <p className="muted">벤치마킹 단계가 실패했습니다.</p>;
-  if (!ready) return <p className="muted">웹 검색으로 사례를 조사하는 중입니다. 1~2분 걸릴 수 있습니다.</p>;
+  if (!ready) return <p className="muted">벤치마킹 사례와 갭 분석을 작성하는 중입니다. 1~2분 걸릴 수 있습니다.</p>;
   return <>{children}</>;
 }
 
@@ -231,11 +234,8 @@ function Table<T extends object>({ cols, rows }: { cols: [string, string][]; row
                 const v = String((r as Record<string, unknown>)[k] ?? "");
                 return (
                   <td key={k}>
-                    {k === "sourceUrl" && v ? (
-                      <>
-                        <a href={v} target="_blank" rel="noreferrer">링크</a>
-                        {"verified" in r && !(r as { verified: boolean }).verified && <span className="warn"> 확인 필요</span>}
-                      </>
+                    {k === "sourceUrl" ? (
+                      v ? <a href={v} target="_blank" rel="noreferrer">열기</a> : <span className="warn">확인 필요</span>
                     ) : v}
                   </td>
                 );
