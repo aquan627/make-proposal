@@ -10,7 +10,7 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   let analysis: Analysis;
   try {
-    if (!rateLimit("ai:" + clientIp(req), 12, 10 * 60 * 1000)) {
+    if (!rateLimit("ai:" + clientIp(req), 20, 10 * 60 * 1000)) {
       throw new GuardError("요청이 너무 많습니다. 몇 분 뒤 다시 시도해 주세요.", 429);
     }
     const body = await readJson<{ analysis?: Analysis }>(req, 300_000);

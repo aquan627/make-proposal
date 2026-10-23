@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   let source = "";
   let pdf: Buffer | null = null;
   try {
-    if (!rateLimit("ai:" + clientIp(req), 12, 10 * 60 * 1000)) {
+    if (!rateLimit("ai:" + clientIp(req), 20, 10 * 60 * 1000)) {
       throw new GuardError("요청이 너무 많습니다. 몇 분 뒤 다시 시도해 주세요.", 429);
     }
     const { text, pdfBase64, consent } = await readJson<{ text?: string; pdfBase64?: string; consent?: boolean }>(req, 4_400_000);

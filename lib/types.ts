@@ -68,3 +68,49 @@ export type BenchmarkResult = {
   gaps: Gap[];
   searched: boolean;
 };
+
+export type MarketShare = {
+  company: string;
+  share: string; // 표시용 (예: "약 30%", "확인 필요")
+  shareValue: number | null; // 막대 표시용 0~100, 모르면 null
+  basis: string; // 근거 설명
+  sourceName: string;
+  sourceUrl: string;
+  verified: boolean; // 검색 출처와 대조됨
+};
+
+export type Competitor = {
+  company: string;
+  offering: string;
+  strengths: string;
+  weaknesses: string;
+  references: string;
+  ourResponse: string;
+};
+
+export type MarketTrend = { trend: string; description: string; impact: string; implication: string };
+
+export type CustomerNeed = {
+  segment: string;
+  need: string;
+  painPoint: string;
+  priority: string;
+  response: string;
+  linkedRequirements: string;
+};
+
+export type Swot = { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] };
+
+export type TowsStrategy = { type: string; strategy: string; description: string };
+
+export type MarketResult = {
+  market: { name: string; definition: string; size: string; growth: string; basis: string };
+  trends: MarketTrend[];
+  shares: MarketShare[];
+  competitors: Competitor[];
+  swot: Swot;
+  swotSubject: string;
+  tows: TowsStrategy[];
+  needs: CustomerNeed[];
+  searched: boolean;
+};

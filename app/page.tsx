@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { Analysis, BenchmarkResult } from "@/lib/types";
+import type { Analysis, BenchmarkResult, MarketResult } from "@/lib/types";
 import { SAMPLE_RFP } from "@/lib/sample";
 import { maskPII, reportText, reportTotal, safeUrl, type MaskReport } from "@/lib/pii";
 
 const PAID = process.env.NEXT_PUBLIC_GEMINI_PAID === "on";
 
-type Step = "idle" | "analyzing" | "benchmarking" | "done";
+type Step = "idle" | "analyzing" | "researching" | "done";
 const MAX_PDF_MB = 3;
 
-const TABS = ["사업개요", "요구사항", "AS-IS", "벤치마킹", "갭분석", "추진전략"] as const;
+const TABS = ["사업개요", "요구사항", "AS-IS", "시장트렌드", "고객니즈", "경쟁사", "SWOT", "벤치마킹", "갭분석", "추진전략"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Home() {
@@ -21,6 +21,9 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [bench, setBench] = useState<BenchmarkResult | null>(null);
   const [benchError, setBenchError] = useState("");
+  const [market, setMarket] = useState<MarketResult | null>(null);
+  const [marketError, setMarketError] = useState("");
+  const [company, setCompany] = useState("");
   const [tab, setTab] = useState<Tab>("사업개요");
   const [downloading, setDownloading] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -30,7 +33,7 @@ export default function Home() {
   const preview = text.trim() ? maskPII(text).report : {};
   const previewCount = reportTotal(preview);
 
-  const busy = step === "analyzing" || step === "benchmarking";
+  const busy = step === "analyzing" || step === "researching";
 
   async function onFile(f: File | undefined) {
     if (!f) return;
@@ -49,8 +52,10 @@ export default function Home() {
   async function run() {
     setError("");
     setBenchError("");
+    setMarketError("");
     setAnalysis(null);
     setBench(null);
+    setMarket(null);
     setTab("사업개요");
     setSentMasking(null);
     setStep("analyzing");
@@ -62,13 +67,12 @@ export default function Home() {
       setSentMasking(text.trim() ? preview : masking ?? {});
       void maskedCount;
       setAnalysis(rest);
-      setStep("benchmarking");
-      try {
-        const r2 = await post("/api/benchmark", { analysis: r1 });
-        setBench(r2);
-      } catch (e) {
-        setBenchError(msg(e));
-      }
+      setStep("researching");
+      // 2단계(벤치마킹)와 3단계(시장 분석)는 동시에 실행
+      await Promise.allSettled([
+        post("/api/benchmark", { analysis: rest }).then(setBench, (e) => setBenchError(msg(e))),
+        post("/api/market", { analysis: rest, company: maskPII(company).text }).then(setMarket, (e) => setMarketError(msg(e))),
+      ]);
       setStep("done");
     } catch (e) {
       setError(msg(e));
@@ -83,7 +87,7 @@ export default function Home() {
       const res = await fetch("/api/excel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ analysis, bench }),
+        body: JSON.stringify({ analysis, bench, market }),
       });
       if (!res.ok) throw new Error("엑셀 생성에 실패했습니다.");
       const blob = await res.blob();
@@ -104,7 +108,7 @@ export default function Home() {
       <header className="top row between wrap">
         <div>
           <h1>RFP Analyzer</h1>
-          <p className="sub">제안요청서를 넣으면 사업개요 · 요구사항 · AS-IS · 벤치마킹 · 갭분석 · 추진전략을 엑셀로 정리합니다.</p>
+          <p className="sub">제안요청서를 넣으면 사업 분석, 시장·경쟁·SWOT·고객 니즈, 벤치마킹·갭, 추진전략을 엑셀로 정리합니다.</p>
         </div>
         <button className="ghost" onClick={logout}>로그아웃</button>
       </header>
@@ -133,6 +137,16 @@ export default function Home() {
             {busy ? "분석 중…" : "분석 시작"}
           </button>
         </div>
+        <details className="company">
+          <summary>우리 회사 정보 (선택) — SWOT의 강점·약점에 반영됩니다</summary>
+          <textarea
+            id="company"
+            value={company}
+            onChange={(e) => setCompany(e.target.value.slice(0, 4000))}
+            placeholder="예: 은행 지급결제 구축 레퍼런스 3건, 자체 정산 솔루션 보유, 클라우드 전환 경험 부족 등"
+            disabled={busy}
+          />
+        </details>
         {text.trim() && (
           <p className={previewCount ? "pii warn-box" : "pii ok-box"}>
             {previewCount
@@ -157,10 +171,15 @@ export default function Home() {
           <StepItem label="1. RFP 분석 (개요·요구사항·AS-IS·전략)" state={step === "analyzing" ? "run" : "ok"} />
           <StepItem
             label="2. 벤치마킹 · 갭 분석"
-            state={step === "analyzing" ? "wait" : step === "benchmarking" ? "run" : benchError ? "fail" : "ok"}
+            state={step === "analyzing" ? "wait" : step === "researching" && !bench && !benchError ? "run" : benchError ? "fail" : "ok"}
+          />
+          <StepItem
+            label="3. 시장 트렌드 · 점유율 · 경쟁사 · SWOT · 고객 니즈"
+            state={step === "analyzing" ? "wait" : step === "researching" && !market && !marketError ? "run" : marketError ? "fail" : "ok"}
           />
           {sentMasking && reportTotal(sentMasking) > 0 && <p className="small muted">전송 전 개인정보 마스킹: {reportText(sentMasking)}</p>}
-          {benchError && <p className="error small">벤치마킹 실패: {benchError} (1단계 결과는 다운로드할 수 있습니다)</p>}
+          {benchError && <p className="error small">벤치마킹 실패: {benchError} (나머지 결과는 다운로드할 수 있습니다)</p>}
+          {marketError && <p className="error small">시장 분석 실패: {marketError} (나머지 결과는 다운로드할 수 있습니다)</p>}
         </section>
       )}
 
@@ -168,7 +187,7 @@ export default function Home() {
         <section className="card">
           <div className="row between wrap">
             <h2>{analysis.overview.projectName}</h2>
-            <button className="primary" onClick={download} disabled={downloading || step === "benchmarking"}>
+            <button className="primary" onClick={download} disabled={downloading || step === "researching"}>
               {downloading ? "생성 중…" : "엑셀 다운로드"}
             </button>
           </div>
@@ -187,6 +206,29 @@ export default function Home() {
             )}
             {tab === "AS-IS" && (
               <Table cols={[["area", "영역"], ["current", "현행"], ["issue", "문제점"], ["toConfirm", "확인 필요"]]} rows={analysis.asis} />
+            )}
+            {tab === "시장트렌드" && (
+              <Pending ready={!!market} failed={!!marketError} what="시장 분석">
+                {market && <MarketView m={market} />}
+              </Pending>
+            )}
+            {tab === "고객니즈" && (
+              <Pending ready={!!market} failed={!!marketError} what="시장 분석">
+                <Table
+                  cols={[["segment", "고객군"], ["need", "니즈"], ["painPoint", "현재 불편"], ["priority", "중요도"], ["response", "제안 반영 방안"], ["linkedRequirements", "연계 요구사항"]]}
+                  rows={market?.needs ?? []}
+                />
+              </Pending>
+            )}
+            {tab === "경쟁사" && (
+              <Pending ready={!!market} failed={!!marketError} what="시장 분석">
+                {market && <CompetitorView m={market} />}
+              </Pending>
+            )}
+            {tab === "SWOT" && (
+              <Pending ready={!!market} failed={!!marketError} what="시장 분석">
+                {market && <SwotView m={market} />}
+              </Pending>
             )}
             {tab === "벤치마킹" && (
               <Pending ready={!!bench} failed={!!benchError}>
@@ -227,10 +269,88 @@ function StepItem({ label, state }: { label: string; state: "wait" | "run" | "ok
   return <div className={`step ${state}`}><span className="icon">{icon}</span>{label}</div>;
 }
 
-function Pending({ ready, failed, children }: { ready: boolean; failed: boolean; children: React.ReactNode }) {
-  if (failed) return <p className="muted">벤치마킹 단계가 실패했습니다.</p>;
-  if (!ready) return <p className="muted">벤치마킹 사례와 갭 분석을 작성하는 중입니다. 1~2분 걸릴 수 있습니다.</p>;
+function Pending({ ready, failed, what = "벤치마킹", children }: { ready: boolean; failed: boolean; what?: string; children: React.ReactNode }) {
+  if (failed) return <p className="muted">{what} 단계가 실패했습니다.</p>;
+  if (!ready) return <p className="muted">{what} 결과를 작성하는 중입니다. 1~2분 걸릴 수 있습니다.</p>;
   return <>{children}</>;
+}
+
+function EstimateNote({ m }: { m: MarketResult }) {
+  if (m.searched) return null;
+  return <p className="callout">웹 검색 없이 AI가 알고 있는 정보로 작성한 초안입니다. 시장 규모·점유율·경쟁사 정보는 &quot;AI 추정&quot;이므로 공시·보도자료 등으로 확인한 뒤 사용하세요.</p>;
+}
+
+function MarketView({ m }: { m: MarketResult }) {
+  const rows: [string, string][] = [
+    ["시장", m.market.name],
+    ["시장 정의", m.market.definition],
+    ["시장 규모", m.market.size],
+    ["성장성", m.market.growth],
+    ["근거·확인 자료", m.market.basis],
+  ];
+  return (
+    <>
+      <EstimateNote m={m} />
+      <dl className="kv">
+        {rows.map(([k, v]) => (
+          <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+        ))}
+      </dl>
+      <h3 className="sec">주요 트렌드</h3>
+      <Table cols={[["trend", "트렌드"], ["description", "내용"], ["impact", "영향도"], ["implication", "본 사업 시사점"]]} rows={m.trends} />
+    </>
+  );
+}
+
+function CompetitorView({ m }: { m: MarketResult }) {
+  return (
+    <>
+      <EstimateNote m={m} />
+      <h3 className="sec">시장 점유율</h3>
+      <div className="shares">
+        {m.shares.map((s, i) => (
+          <div className="share" key={i}>
+            <span className="share-name">{s.company}</span>
+            <span className="share-track" aria-hidden="true">
+              {s.shareValue != null && <span className="share-bar" style={{ width: `${Math.min(100, s.shareValue)}%` }} />}
+            </span>
+            <span className="share-val">{s.share || "확인 필요"}</span>
+            <span className={s.verified ? "tag ok" : "tag"}>{s.verified ? "검색 확인" : "AI 추정"}</span>
+          </div>
+        ))}
+      </div>
+      <p className="small muted">근거: {m.shares.map((s) => `${s.company} — ${s.basis}`).join(" / ")}</p>
+      <h3 className="sec">경쟁사 특장점</h3>
+      <Table
+        cols={[["company", "업체"], ["offering", "주력 솔루션"], ["strengths", "특장점"], ["weaknesses", "약점·한계"], ["references", "유사 레퍼런스"], ["ourResponse", "대응 포인트"]]}
+        rows={m.competitors}
+      />
+    </>
+  );
+}
+
+function SwotView({ m }: { m: MarketResult }) {
+  const q: [string, string, string[]][] = [
+    ["s", "S · 강점", m.swot.strengths],
+    ["w", "W · 약점", m.swot.weaknesses],
+    ["o", "O · 기회", m.swot.opportunities],
+    ["t", "T · 위협", m.swot.threats],
+  ];
+  return (
+    <>
+      <p className="small muted">분석 기준: {m.swotSubject}</p>
+      <div className="swot">
+        {q.map(([k, label, items]) => (
+          <div key={k} className={`quad ${k}`}>
+            <h4>{label}</h4>
+            <ul>{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+          </div>
+        ))}
+      </div>
+      <h3 className="sec">SWOT 교차 전략</h3>
+      <Table cols={[["type", "구분"], ["strategy", "전략"], ["description", "내용"]]} rows={m.tows} />
+    </>
+  );
 }
 
 function OverviewView({ a }: { a: Analysis }) {
