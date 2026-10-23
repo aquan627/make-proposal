@@ -1,6 +1,6 @@
 # RFP Analyzer 요구사항
 
-> 원본: 요구사항명세서.docx (RFPA_SRS_001 v1.0, 2026-10-23). 요구사항이 바뀌면 이 문서와 테스트를 함께 고친다.
+> 원본: 요구사항명세서.docx (RFPA_SRS_001 v1.0, 2026-10-23). 2026-10-23 LLM을 Gemini에서 OpenAI로 전환하며 갱신. 요구사항이 바뀌면 이 문서와 테스트를 함께 고친다.
 > 테스트 이름에 요구사항 ID를 넣으면 `npm run trace`가 추적표를 만든다.
 
 ## 1. 개요
@@ -29,7 +29,7 @@ RFP Analyzer는 금융권 SI 제안요청서(RFP)를 입력받아 제안 기초�
 | RFP | 발주기관이 제안사에 배포하는 제안요청서 |
 | 마스킹 | 개인정보로 판단된 문자열을 [유형 마스킹] 토큰으로 바꾸는 처리 |
 | AI 추정 | 웹 검색 근거 없이 모델 지식으로 작성한 수치·사례. 화면과 엑셀에 "확인 필요"로 표시 |
-| 무료 등급 | Google Gemini API의 결제 미연결 사용 구간. 입력이 Google 서비스 개선·사람 검토에 쓰일 수 있음 |
+| 무료 등급 | OpenAI API의 결제 미연결 사용 구간. 입력이 Google 서비스 개선·사람 검토에 쓰일 수 있음 |
 | TOWS | SWOT 요소를 교차한 SO·ST·WO·WT 전략 |
 
 ### 1.4. 관련 버전
@@ -42,13 +42,13 @@ RFP Analyzer는 금융권 SI 제안요청서(RFP)를 입력받아 제안 기초�
 
 ## 2. 시스템 구성
 
-RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 구성되며, 외부로 나가는 데이터는 마스킹된 텍스트뿐이다.
+RFP Analyzer는 브라우저, Vercel 서버, OpenAI API 세 부분으로 구성되며, 외부로 나가는 데이터는 마스킹된 텍스트뿐이다.
 
 (구성도: 요구사항명세서.docx [그림 1] 참고)
 
 [그림 1] 시스템 구성도
 
-모든 요청은 로그인 확인을 거치고, 분석 API 3개만 Gemini를 호출한다. 엑셀 생성은 서버 안에서만 처리한다.
+모든 요청은 로그인 확인을 거치고, 분석 API 3개만 OpenAI를 호출한다. 엑셀 생성은 서버 안에서만 처리한다.
 
 ### 2.1. 처리 흐름
 
@@ -65,7 +65,7 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 | 구분 | 기술 |
 | --- | --- |
 | 프레임워크 | Next.js 16 (App Router), React 19, TypeScript |
-| AI | Google Gemini API (@google/genai), 기본 모델 gemini-3.8-flash |
+| AI | OpenAI API (openai), 기본 모델 gpt-6.1-sol |
 | 문서 처리 | unpdf(PDF 텍스트 추출), exceljs(엑셀 생성) |
 | 배포 | Vercel(Node.js 런타임, Production make-proposal-1wzg), GitHub 연동 자동 배포 |
 | 저장소 | GitHub aquan627/make-proposal |
@@ -109,7 +109,7 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 | SFR-019 | 결과 미리보기 | 분석 결과를 탭으로 보여준다 | 10개 탭, SWOT은 2×2 배치, 점유율은 막대, AI 추정 안내 문구 표시 |
 | SFR-020 | 엑셀 다운로드 | 결과를 10개 시트 엑셀로 내려받는다 | 분석 중 비활성, 파일명 RFP분석_사업명.xlsx, 실패한 단계의 시트는 빈 표로 생성 |
 | SFR-021 | 오류 안내 | 오류 원인별로 사용자가 할 일을 안내한다 | 연결 실패, 처리 중 끊김, 시간 초과, 호출 한도, 키 오류, AI 서버 오류를 구분한 문구 |
-| SFR-022 | 검색 기반 분석(선택) | 유료 키에서 Google 검색으로 벤치마킹·시장 자료를 확인한다 | GEMINI_SEARCH=on일 때만 동작, 검색 출처와 대조된 항목에 "검색 확인"과 링크 표시 |
+| SFR-022 | 검색 기반 분석(선택) | OPENAI_SEARCH=on일 때 웹 검색으로 벤치마킹·시장 자료를 확인한다 | OPENAI_SEARCH=on일 때만 동작, 검색 출처와 대조된 항목에 "검색 확인"과 링크 표시 |
 
 ## 4. 보안·개인정보 요구사항
 
@@ -122,7 +122,7 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 | SER-001 | 개인정보 마스킹 | 주민·외국인등록번호, 여권, 운전면허, 카드(Luhn 검증), 전화, 이메일, 사업자번호, 계좌, IP, 직함·라벨이 붙은 성명을 [유형 마스킹]으로 바꾼다. 날짜·금액·요구사항 ID는 보존한다 | P-1 |
 | SER-002 | 이중 마스킹 | 브라우저에서 1차, 서버(분석·벤치마킹·시장 API)에서 2차 적용한다. 제안사 정보 입력란도 포함한다 | P-2 |
 | SER-003 | 원본 PDF 외부 전송 금지 | PDF는 서버에서 텍스트만 추출해 마스킹 후 전송하고, 원본은 저장·전송하지 않는다 | P-3 |
-| SER-004 | 고지·동의 | 무료 Gemini는 입력을 Google이 개선·사람 검토에 쓸 수 있음을 고지하고 동의를 받는다 | P-4 |
+| SER-004 | 고지·동의 | OpenAI API 전송과 데이터 정책(학습 미사용, 오남용 점검용 최대 30일 보관)을 고지하고 동의를 받는다 | P-4 |
 | SER-005 | 저장·로그 금지 | RFP 본문, AI 응답, 비밀번호를 DB·파일·로그에 남기지 않는다. 오류 로그는 상태 코드만 기록한다 | P-5 |
 | SER-006 | 마스킹 복원 금지 | AI가 [유형 마스킹] 값을 추측·복원하지 않도록 프롬프트에 명시한다 | P-6 |
 
@@ -157,7 +157,7 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 | 요구사항 ID | 분류 | 요구사항 | 기준 |
 | --- | --- | --- | --- |
 | NFR-001 | 성능 | 단계별 처리 시간 | 1단계 1~2분, 2·3단계 동시 1~2분. API 최대 실행 시간 300초 |
-| NFR-002 | 성능 | AI 응답 속도 | Gemini 사고 수준 LOW로 설정 |
+| NFR-002 | 성능 | AI 응답 속도 | OpenAI 추론 수준(reasoning effort) low로 설정 |
 | NFR-003 | 안정성 | 긴 요청 연결 유지 | 분석·벤치마킹·시장 API는 스트리밍 응답으로 8초마다 연결 유지 신호를 보낸다 |
 | NFR-004 | 안정성 | 부분 실패 허용 | 2·3단계 중 하나가 실패해도 완료된 결과 표시와 엑셀 다운로드가 가능하다 |
 | NFR-005 | 가용성 | 배포 환경 | Vercel 서버리스, GitHub main push 시 자동 배포 |
@@ -167,12 +167,12 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 | NFR-009 | 품질 | 외부 정보 신뢰성 | 검색 미사용 시 시장 수치·사례에 "AI 추정" 표기, URL을 지어내지 않음, 검색 사용 시 검색 출처와 대조해 "검색 확인" 표시 |
 | NFR-010 | 품질 | 제안서 문체 | 한국어 개조식("~함", "~필요") |
 | NFR-011 | 사용성 | 예시 데이터 | 샘플 RFP는 가상 기관(한빛은행)·가상 수치만 사용 |
-| NFR-012 | 유지보수 | 모델 교체 | LLM 호출은 lib/gemini.ts 한 파일에 모아 사내 LLM 등으로 교체할 수 있게 한다 |
-| NFR-013 | 비용 | 무료 운영 | Gemini 무료 등급과 Vercel Hobby로 운영할 수 있다. 무료 등급의 분당·일일 호출 한도를 허용한다 |
+| NFR-012 | 유지보수 | 모델 교체 | LLM 호출은 lib/llm.ts 한 파일에 모아 사내 LLM 등으로 교체할 수 있게 한다 |
+| NFR-013 | 비용 | 운영 비용 | OpenAI API 사용량 과금(결제 크레딧 필요)과 Vercel Hobby로 운영한다. 비용을 줄이려면 OPENAI_MODEL을 gpt-6-luna로 바꾼다 |
 
 ## 6. 인터페이스 요구사항
 
-서버 API는 6개이고 모두 JSON POST이며, 로그인 API를 제외한 5개는 세션 쿠키가 필요하다. 외부 연동은 Google Gemini API 하나다.
+서버 API는 6개이고 모두 JSON POST이며, 로그인 API를 제외한 5개는 세션 쿠키가 필요하다. 외부 연동은 OpenAI API 하나다.
 
 ### 6.1. API 엔드포인트
 
@@ -191,8 +191,8 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 
 | 요구사항 ID | 대상 | 내용 |
 | --- | --- | --- |
-| IFR-007 | Google Gemini API | @google/genai SDK, 기본 모델 gemini-3.8-flash, JSON 스키마 구조화 출력 |
-| IFR-008 | Google 검색 연동(선택) | GEMINI_SEARCH=on일 때 googleSearch 도구 사용, 검색 출처(groundingChunks)와 결과 출처를 대조. 유료 등급 필요 |
+| IFR-007 | OpenAI API | openai SDK, 기본 모델 gpt-6.1-sol, JSON 스키마 구조화 출력 |
+| IFR-008 | 웹 검색 연동(선택) | OPENAI_SEARCH=on일 때 web_search 도구 사용, 검색 출처(url_citation)와 결과 출처를 대조. 검색 호출 비용 추가 |
 
 ### 6.3. 엑셀 출력 시트
 
@@ -227,7 +227,7 @@ RFP Analyzer는 브라우저, Vercel 서버, Google Gemini API 세 부분으로 
 | 요구사항 ID | 항목 | 정책 |
 | --- | --- | --- |
 | DAR-005 | 저장 | RFP 원문, PDF, 분석 결과를 서버에 저장하지 않는다 |
-| DAR-006 | 외부 전송 | 마스킹된 텍스트와 단계 결과(요약)만 Gemini로 전송한다 |
+| DAR-006 | 외부 전송 | 마스킹된 텍스트와 단계 결과(요약)만 OpenAI로 전송한다 |
 | DAR-007 | 캐시 | API 응답은 Cache-Control: no-store |
 | DAR-008 | 사용자 데이터 보관 | 필요한 결과는 사용자가 엑셀로 내려받아 보관한다 |
 
@@ -237,20 +237,20 @@ Vercel에서 설정하며, 반드시 Production 환경에 체크해야 한다. �
 
 | 이름 | 필수 | 기본값 | 설명 |
 | --- | --- | --- | --- |
-| GEMINI_API_KEY | 필수 | 없음 | Google AI Studio에서 발급한 키 |
+| OPENAI_API_KEY | 필수 | 없음 | platform.openai.com에서 발급한 키 |
 | APP_PASSWORD | 필수 | 없음 | 접근 비밀번호, 8자 이상. 없으면 앱 잠김 |
-| GEMINI_MODEL | 선택 | gemini-3.8-flash | 사용할 모델 |
-| GEMINI_SEARCH | 선택 | off | on이면 Google 검색 기반 분석(유료 키) |
-| NEXT_PUBLIC_GEMINI_PAID | 선택 | off | 유료 키 사용 시 on, 동의 문구가 바뀜 |
+| OPENAI_MODEL | 선택 | gpt-6.1-sol | 사용할 모델 |
+| OPENAI_SEARCH | 선택 | off | on이면 웹 검색 기반 분석(유료 키) |
+| OPENAI_REASONING_EFFORT | 선택 | low | 추론 수준 |
 
 ## 8. 제약사항·가정·운영
 
-가장 큰 제약은 무료 Gemini 등급의 데이터 정책이다. 실제 고객 RFP는 유료 등급 키(학습 미사용)에서만 사용한다는 것을 운영 전제로 둔다.
+가장 큰 제약은 외부 AI(OpenAI API)로 RFP가 전송된다는 점이다. OpenAI는 API 입력을 학습에 쓰지 않지만 최대 30일 보관하므로, 대외비 RFP는 회사 보안 정책에 따라 사용하는 것을 운영 전제로 둔다.
 
 ### 8.1. 제약사항
 
-- Gemini 무료 등급은 입력을 Google이 서비스 개선·사람 검토에 쓸 수 있고, 약관상 민감·대외비·개인정보 입력을 금지한다.
-- 무료 등급에서는 Google 검색 연동이 제공되지 않아, 시장 규모·점유율·벤치마킹은 AI 추정 초안이다.
+- OpenAI API는 입력을 학습에 쓰지 않지만 오남용 점검용으로 최대 30일 보관한다(ZDR은 별도 승인). API 사용에는 결제 크레딧이 필요하다.
+- 웹 검색(OPENAI_SEARCH)을 켜지 않으면 시장 규모·점유율·벤치마킹은 AI 추정 초안이다.
 - 마스킹은 정규식 기반이라 형식 없는 이름·주소·고객사 내부 명칭은 놓칠 수 있고, 버전 번호 같은 IP 형식 값은 가려질 수 있다.
 - 호출 횟수 제한은 서버리스 인스턴스별 메모리 방식이라 분산 공격을 완전히 막지 못한다.
 - PDF는 3MB 이하 텍스트 PDF만 지원한다(Vercel 요청 크기 제한 4.5MB).
@@ -260,14 +260,14 @@ Vercel에서 설정하며, 반드시 Production 환경에 체크해야 한다. �
 
 | 항목 | 내용 |
 | --- | --- |
-| 정기 보안 점검 | 매주 월요일 08:37(한국 시간) 자동 실행. SECURITY.md 전 항목 확인, 마스킹 테스트, 의존성 감사, 키 유출 검색, Gemini 약관 변경 확인 |
+| 정기 보안 점검 | 매주 월요일 08:37(한국 시간) 자동 실행. SECURITY.md 전 항목 확인, 마스킹 테스트, 의존성 감사, 키 유출 검색, OpenAI 데이터 정책 변경 확인 |
 | 점검 결과 반영 | security/날짜 브랜치 PR로 제출, main 직접 반영 금지, 결과는 앱 알림과 이메일로 수신 |
 | 변경 규칙 | 저장소 CLAUDE.md의 작업 규칙(마스킹 경유, 로그 금지, 새 API의 가드 적용 등)을 따른다 |
 | 배포 | GitHub main push 시 Vercel 자동 배포, 환경변수 변경 시 수동 재배포 |
 
 ### 8.3. 향후 과제
 
-- 실제 고객 RFP 사용 전 Gemini 유료 등급 전환 또는 사내 LLM 교체
+- 실제 고객 RFP 사용 전 OpenAI ZDR 승인 검토 또는 사내 LLM 교체
 - 사용자별 계정·사용 이력(감사 로그) 도입 여부 결정
 - 호출 횟수 제한을 외부 저장소(Vercel Firewall 등) 기반으로 강화
 - 스캔 PDF·HWP 입력 지원 검토
@@ -279,9 +279,9 @@ Vercel에서 설정하며, 반드시 Production 환경에 체크해야 한다. �
 | --- | --- | --- |
 | SFR-001 | proxy.ts, lib/auth.ts, app/login | SER-007~009, IFR-001~002 |
 | SFR-002~006 | app/page.tsx, lib/pii.ts, lib/pdf.ts | SER-001~004, SER-012 |
-| SFR-007~010 | lib/gemini.ts analyzeRfp, app/api/analyze | SER-006, SER-016, IFR-003 |
-| SFR-011~012 | lib/gemini.ts benchmarkAndGap, app/api/benchmark | SER-013, SER-017, IFR-004 |
-| SFR-013~017 | lib/gemini.ts marketAnalysis, app/api/market | SER-002, SER-017, IFR-005 |
+| SFR-007~010 | lib/llm.ts analyzeRfp, app/api/analyze | SER-006, SER-016, IFR-003 |
+| SFR-011~012 | lib/llm.ts benchmarkAndGap, app/api/benchmark | SER-013, SER-017, IFR-004 |
+| SFR-013~017 | lib/llm.ts marketAnalysis, app/api/market | SER-002, SER-017, IFR-005 |
 | SFR-018~019, SFR-021 | app/page.tsx, lib/stream.ts | NFR-003~004 |
 | SFR-020 | lib/excel.ts, app/api/excel | SER-014, IFR-006 |
-| SFR-022 | lib/gemini.ts (GEMINI_SEARCH) | IFR-008 |
+| SFR-022 | lib/llm.ts (OPENAI_SEARCH) | IFR-008 |

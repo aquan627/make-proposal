@@ -5,8 +5,6 @@ import type { Analysis, BenchmarkResult, MarketResult } from "@/lib/types";
 import { SAMPLE_RFP } from "@/lib/sample";
 import { maskPII, reportText, reportTotal, safeUrl, type MaskReport } from "@/lib/pii";
 
-const PAID = process.env.NEXT_PUBLIC_GEMINI_PAID === "on";
-
 type Step = "idle" | "analyzing" | "researching" | "done";
 const MAX_PDF_MB = 3;
 
@@ -158,9 +156,7 @@ export default function Home() {
         <label className="consent">
           <input id="consent" type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={busy} />
           <span>
-            {PAID
-              ? "입력 내용이 Google Gemini API(유료 등급, 학습 미사용)로 전송됨을 확인했습니다. 대외비 RFP는 회사 보안 정책에 따라 사용합니다."
-              : "입력 내용이 Google Gemini 무료 API로 전송되며, 무료 등급에서는 Google이 서비스 개선과 사람 검토에 사용할 수 있음을 확인했습니다. 대외비·고객 정보가 포함된 RFP는 넣지 않습니다."}
+            입력 내용이 OpenAI API로 전송됨을 확인했습니다. OpenAI는 API 입력을 모델 학습에 쓰지 않지만 오남용 점검을 위해 최대 30일 보관할 수 있으므로, 대외비 RFP는 회사 보안 정책에 따라 사용합니다.
           </span>
         </label>
         {error && <p className="error">{error}</p>}

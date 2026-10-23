@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: RFP Analyzer 정기(주간) 보안 점검 절차. 예약 작업이나 "보안 점검해줘" 요청 때 사용한다. SECURITY.md 전 항목 확인, 자동 점검, Gemini 약관 변경 확인, 결과 PR 작성까지.
+description: RFP Analyzer 정기(주간) 보안 점검 절차. 예약 작업이나 "보안 점검해줘" 요청 때 사용한다. SECURITY.md 전 항목 확인, 자동 점검, OpenAI 데이터 정책 변경 확인, 결과 PR 작성까지.
 ---
 
 # 정기 보안 점검
@@ -23,7 +23,7 @@ npm run trace -- --strict     # 보안 요구사항 테스트 누락 0건
 
 ## 4. 외부 변화 확인
 
-- Gemini API 이용약관(ai.google.dev/gemini-api/terms)의 무료·유료 등급 데이터 사용 조항이 바뀌었는지 확인한다. 바뀌면 화면 동의 문구(`app/page.tsx`)와 SECURITY.md S-7을 갱신 대상으로 기록한다.
+- OpenAI API 데이터 정책(developers.openai.com/api/docs/guides/your-data)의 학습 사용·보관 기간 조항이 바뀌었는지 확인한다. 바뀌면 화면 동의 문구(`app/page.tsx`)와 SECURITY.md S-7을 갱신 대상으로 기록한다.
 - `npm audit` moderate 이하 항목은 사유와 함께 기록한다.
 
 ## 5. 결과 반영

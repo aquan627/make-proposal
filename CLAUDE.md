@@ -1,6 +1,6 @@
 # RFP Analyzer — 작업 규칙
 
-금융권 SI 제안용 RFP 분석 앱 (Next.js 16 + Google Gemini API + ExcelJS, Vercel 배포).
+금융권 SI 제안용 RFP 분석 앱 (Next.js 16 + OpenAI API + ExcelJS, Vercel 배포).
 요구사항 원본: `docs/REQUIREMENTS.md` · 보안 기준: `SECURITY.md`
 대외비 RFP와 개인정보를 다룰 수 있으므로 **모든 변경은 `SECURITY.md` 기준을 지켜야 합니다.**
 
@@ -19,7 +19,7 @@
 | 구분 | 이름 | 언제 쓰나 |
 |---|---|---|
 | 에이전트 | `security-reviewer` | 코드 변경 후, PR 전, 정기 점검 — SECURITY.md 기준 검토(수정은 안 함) |
-| 에이전트 | `qa-tester` | 기능 추가·버그 수정 후 — 가짜 Gemini로 테스트 작성·실행, 요구사항 ID 연결 |
+| 에이전트 | `qa-tester` | 기능 추가·버그 수정 후 — 가짜 LLM로 테스트 작성·실행, 요구사항 ID 연결 |
 | 에이전트 | `deploy-checker` | push 후, 오류 보고 시 — Vercel 배포·환경변수·로그 확인 |
 | 에이전트 | `spec-keeper` | 기능 변경 후, 산출물 제출 전 — docs/REQUIREMENTS.md·추적표 갱신 |
 | 스킬 | `add-analysis-feature` | 새 분석 항목·엑셀 시트 추가 (7개 위치 일괄 변경) |
@@ -40,7 +40,7 @@
 
 | 명령 | 내용 |
 |---|---|
-| `npm test` | vitest 테스트 (가짜 Gemini, 외부 호출 없음) |
+| `npm test` | vitest 테스트 (가짜 LLM, 외부 호출 없음) |
 | `npm run security:scan` | SECURITY.md 기준 정적 점검 (마스킹 누락, 로그, 비밀값, 키 유출 이력) |
 | `npm run trace` | 요구사항 ↔ 테스트 추적표 (`-- --strict`: 보안 요구사항 테스트 누락 시 실패) |
 | `npm run check` | 타입검사 + 테스트 + 보안 스캔 + 의존성 감사 + 빌드 (push 전 필수, CI와 동일) |
@@ -58,8 +58,8 @@ npm peer 의존성 해석 오류 때문에 `.npmrc`에 `legacy-peer-deps=true`�
 
 | 이름 | 필수 | 설명 |
 |---|---|---|
-| `GEMINI_API_KEY` | O | Google AI Studio에서 발급 |
+| `OPENAI_API_KEY` | O | platform.openai.com에서 발급 (Billing 크레딧 필요) |
 | `APP_PASSWORD` | O | 접근 비밀번호, 8자 이상. 미설정 시 앱 잠김 |
-| `GEMINI_MODEL` | | 기본 `gemini-3.8-flash` |
-| `GEMINI_SEARCH` | | `on`이면 Google 검색 기반 벤치마킹 (유료 키 필요) |
-| `NEXT_PUBLIC_GEMINI_PAID` | | 유료 키 사용 시 `on` (동의 문구 변경) |
+| `OPENAI_MODEL` | | 기본 `gpt-6.1-sol` |
+| `OPENAI_SEARCH` | | `on`이면 웹 검색 기반 벤치마킹·시장 분석 |
+| `OPENAI_REASONING_EFFORT` | | 추론 수준, 기본 `low` |
