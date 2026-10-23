@@ -1,5 +1,5 @@
 // 테스트용 가상 데이터 (실제 기관·인물과 무관)
-import type { Analysis, BenchmarkResult, MarketResult } from "@/lib/types";
+import type { Analysis, BenchmarkResult } from "@/lib/types";
 
 export const SAMPLE_TEXT = `[제안요청서] 한빛은행(가상) 지급결제 플랫폼 구축
 담당자: 홍길동 (디지털금융본부 김철수 과장, 010-1234-5678, pm@hanbit.example.com)
@@ -27,20 +27,5 @@ export const analysis: Analysis = {
 export const bench: BenchmarkResult = {
   benchmarks: [{ organization: "국내 시중은행", caseName: "단계적 전환", year: "확인 필요", summary: "요약", implication: "시사점", sourceUrl: "javascript:alert(1)", sourceName: "", verified: false }],
   gaps: [{ area: "정산", asis: "수작업", tobe: "자동", benchmark: "시중은행", gap: "자동화", task: "대사 엔진", priority: "상" }],
-  searched: false,
-};
-
-export const market: MarketResult = {
-  market: { name: "은행 지급결제 시장", definition: "정의", size: "AI 추정, 확인 필요", growth: "AI 추정", basis: "AI 추정" },
-  trends: [{ trend: "클라우드 전환", description: "MSA", impact: "상", implication: "단계 전환" }],
-  shares: [
-    { company: "A사", share: "약 30%(추정)", shareValue: 30, basis: "AI 추정", sourceName: "", sourceUrl: "", verified: false },
-    { company: "B사", share: "확인 필요", shareValue: null, basis: "AI 추정", sourceName: "", sourceUrl: "", verified: false },
-  ],
-  competitors: [{ company: "A사", offering: "코어", strengths: "+레퍼런스", weaknesses: "고가", references: "확인 필요", ourResponse: "정산 차별화" }],
-  swot: { strengths: ["정산 솔루션"], weaknesses: ["클라우드 경험"], opportunities: ["규제 완화"], threats: ["가격 경쟁"] },
-  swotSubject: "입력한 제안사 정보 기준",
-  tows: [{ type: "SO", strategy: "정산 선제 제안", description: "..." }],
-  needs: [{ segment: "개인 고객", need: "즉시 이체", painPoint: "피크 지연", priority: "상", response: "자동 확장", linkedRequirements: "PER-001" }],
   searched: false,
 };

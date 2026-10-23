@@ -19,7 +19,7 @@ description: RFP Analyzer 배포·실행 오류를 진단할 때 사용. 화면 
 | "관리자가 Vercel 환경변수 APP_PASSWORD(8자 이상)를 설정해야…" | APP_PASSWORD 없음, 8자 미만, 또는 **Development에만 체크** | Production에 체크(값 유지) 후 재배포 |
 | "OPENAI_API_KEY 환경변수가 설정되지 않았습니다" | 키 없음, 이름 오타, **Development에만 체크**, 또는 키 값을 이름 칸에 입력 | 이름 `OPENAI_API_KEY`, Production 체크 후 재배포 |
 | "OpenAI API 크레딧이 부족합니다" | 결제 크레딧 없음(insufficient_quota) | platform.openai.com Billing에서 충전 |
-| "OpenAI 호출 한도를 넘었습니다" | 계정 등급별 분당 한도 (분석 1회 = 호출 3회) | 1~2분 대기 |
+| "OpenAI 호출 한도를 넘었습니다" | 계정 등급별 분당 한도 (분석 1회 = 호출 2회) | 1~2분 대기 |
 | "Failed to fetch" / "처리 도중 연결이 끊겼습니다" | 긴 요청이 중간에 끊김(회사망 프록시 등) | 스트리밍 연결 유지가 적용된 최신 배포인지 확인, 새로고침, 짧은 RFP로 재시도 |
 | "처리 시간이 초과됐습니다" (504) | 300초 초과 | RFP 분량 축소, 요구사항 부분만 입력 |
 | "로그인이 필요합니다" | 세션 만료(12시간) 또는 APP_PASSWORD 변경 | 다시 로그인 |

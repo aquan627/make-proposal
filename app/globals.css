@@ -78,28 +78,3 @@ a { color: var(--accent); }
 .login .card { width: 100%; max-width: 380px; display: grid; gap: 10px; }
 .login input[type="password"] { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
 .login .primary { margin-left: 0; }
-.company { margin-top: 10px; font-size: 13.5px; }
-.company summary { cursor: pointer; color: var(--muted); }
-.company textarea { min-height: 90px; margin-top: 8px; }
-.sec { font-size: 15px; margin: 18px 0 8px; }
-.shares { display: grid; gap: 6px; }
-.share { display: grid; grid-template-columns: minmax(80px, 160px) minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 13.5px; }
-.share-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.share-track { height: 10px; background: var(--soft); border-radius: 5px; overflow: hidden; }
-.share-bar { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
-.share-val { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tag { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--soft); color: var(--warn); white-space: nowrap; }
-.tag.ok { color: var(--ok); }
-.swot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.quad { border-radius: 10px; padding: 12px 14px; border: 1px solid var(--line); }
-.quad h4 { margin: 0 0 6px; font-size: 14px; }
-.quad ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
-.quad.s { background: color-mix(in srgb, var(--ok) 10%, var(--card)); }
-.quad.w { background: color-mix(in srgb, var(--fail) 8%, var(--card)); }
-.quad.o { background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
-.quad.t { background: color-mix(in srgb, var(--warn) 10%, var(--card)); }
-@media (max-width: 600px) {
-  .swot { grid-template-columns: 1fr; }
-  .share { grid-template-columns: 1fr auto; }
-  .share-track { grid-column: 1 / -1; order: 3; }
-}

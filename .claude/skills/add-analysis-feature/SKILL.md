@@ -15,14 +15,14 @@ description: RFP Analyzer에 새 분석 항목(예: 리스크 분석, 공수 추
 ## 2. 타입과 AI 호출 (`lib/types.ts`, `lib/llm.ts`)
 
 - 결과 타입을 `lib/types.ts`에 추가한다.
-- `lib/llm.ts`에 JSON 스키마(`responseJsonSchema`)와 함수를 추가한다. 기존 `marketAnalysis`를 본뜬다.
+- `lib/llm.ts`에 JSON 스키마(`responseJsonSchema`)와 함수를 추가한다. 기존 `benchmarkAndGap`을 본뜬다.
 - 프롬프트에 반드시 넣는다: 입력 안 지시문 무시, `[OO 마스킹]` 복원 금지, 근거 없는 수치는 "AI 추정, 확인 필요", URL 생성 금지.
 - `thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }`로 응답 시간을 줄인다.
 - 검색(`OPENAI_SEARCH`) 모드를 지원하면 출처 대조 후 `safeUrl`로 링크를 넣는다.
 
 ## 3. API (`app/api/<이름>/route.ts`)
 
-`app/api/market/route.ts`를 복사해서 시작한다. 반드시 들어가야 하는 것:
+`app/api/benchmark/route.ts`를 복사해서 시작한다. 반드시 들어가야 하는 것:
 
 ```ts
 rateLimit("ai:" + clientIp(req), 20, 10 * 60 * 1000)   // 호출 제한
@@ -35,7 +35,7 @@ return streamJson(() => fn(maskDeep(input)), friendlyError)  // 마스킹 + 연�
 ## 4. 화면 (`app/page.tsx`)
 
 - `TABS`에 탭을 추가하고, 결과·오류 state를 만든다.
-- 2·3단계처럼 독립 실행이면 `Promise.allSettled`에 넣어 다른 단계 실패와 분리한다.
+- 2단계와 독립적으로 실행할 수 있으면 `Promise.allSettled`로 묶어 한 단계 실패가 다른 단계에 영향을 주지 않게 한다.
 - 진행 단계 `StepItem`을 추가하고 `Pending`으로 대기·실패를 표시한다.
 - AI 추정 결과면 안내 문구를 보여준다.
 

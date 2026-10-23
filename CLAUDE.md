@@ -61,5 +61,5 @@ npm peer 의존성 해석 오류 때문에 `.npmrc`에 `legacy-peer-deps=true`�
 | `OPENAI_API_KEY` | O | platform.openai.com에서 발급 (Billing 크레딧 필요) |
 | `APP_PASSWORD` | O | 접근 비밀번호, 8자 이상. 미설정 시 앱 잠김 |
 | `OPENAI_MODEL` | | 기본 `gpt-6.1-sol` |
-| `OPENAI_SEARCH` | | `on`이면 웹 검색 기반 벤치마킹·시장 분석 |
+| `OPENAI_SEARCH` | | `on`이면 웹 검색 기반 벤치마킹 |
 | `OPENAI_REASONING_EFFORT` | | 추론 수준, 기본 `low` |
