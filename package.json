@@ -4,7 +4,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "security:scan": "node scripts/security-scan.mjs",
+    "check": "npm run typecheck && npm test && npm run security:scan && npm audit --omit=dev --audit-level=high && npm run build"
   },
   "dependencies": {
     "@google/genai": "^2.31.0",
@@ -17,7 +22,9 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.4"
   },
   "private": true,
   "overrides": {

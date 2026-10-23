@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "security/**", "feature/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 보안 스캔이 커밋 이력 전체에서 키 유출을 검사
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 타입 검사
+        run: npm run typecheck
+      - name: 테스트 (가짜 Gemini, 외부 호출 없음)
+        run: npm test
+      - name: 보안 스캔 (SECURITY.md 기준)
+        run: npm run security:scan
+      - name: 의존성 취약점 (high 이상 차단)
+        run: npm audit --omit=dev --audit-level=high
+      - name: 빌드
+        run: npm run build
