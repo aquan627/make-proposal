@@ -23,7 +23,7 @@ jobs:
       - run: npm ci
       - name: 타입 검사
         run: npm run typecheck
-      - name: 테스트 (가짜 Gemini, 외부 호출 없음)
+      - name: 테스트 (가짜 LLM, 외부 호출 없음)
         run: npm test
       - name: 보안 스캔 (SECURITY.md 기준)
         run: npm run security:scan

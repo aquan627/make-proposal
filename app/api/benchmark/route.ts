@@ -1,4 +1,4 @@
-import { benchmarkAndGap, friendlyError } from "@/lib/gemini";
+import { benchmarkAndGap, friendlyError } from "@/lib/llm";
 import { clientIp, errorResponse, GuardError, rateLimit, readJson } from "@/lib/guard";
 import { maskDeep } from "@/lib/pii";
 import { streamJson } from "@/lib/stream";

@@ -1,33 +1,76 @@
-import { GoogleGenAI, ApiError, ThinkingLevel } from "@google/genai";
+import OpenAI, { APIError } from "openai";
 import type { Analysis, BenchmarkResult, MarketResult } from "./types";
 import { safeUrl } from "./pii";
 
-// LLM 호출은 이 파일에만 모여 있습니다.
-// 다른 모델(사내 LLM 등)로 바꿀 때는 이 파일만 교체하면 됩니다.
-export const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-// Google 검색 연동은 Gemini 무료 등급에서 제공되지 않습니다. 유료 키일 때만 "on"으로 설정하세요.
-const USE_SEARCH = (process.env.GEMINI_SEARCH || "").toLowerCase() === "on";
+// LLM 호출은 이 파일에만 모여 있습니다. (현재: OpenAI Responses API)
+// 다른 모델(사내 LLM 등)로 바꿀 때는 이 파일의 callLLM()만 교체하면 됩니다.
+export const MODEL = process.env.OPENAI_MODEL || "gpt-6.1-sol";
+// 웹 검색 기반 벤치마킹·시장 분석 (검색 도구 호출 비용이 추가됨)
+const USE_SEARCH = (process.env.OPENAI_SEARCH || "").toLowerCase() === "on";
+const EFFORT = (process.env.OPENAI_REASONING_EFFORT || "low") as "none" | "minimal" | "low" | "medium" | "high";
 
 function client() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.");
-  return new GoogleGenAI({ apiKey });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.");
+  return new OpenAI({ apiKey, maxRetries: 1, timeout: 280_000 });
 }
 
 export function friendlyError(e: unknown): string {
-  if (e instanceof ApiError) {
-    const m = e.message || "";
-    if (e.status === 429) return "Gemini 무료 사용 한도를 넘었습니다. 1~2분 뒤 다시 시도하거나 내일 다시 시도해 주세요.";
-    if (e.status === 400 && /api key/i.test(m)) return "Gemini API 키가 올바르지 않습니다. Vercel의 GEMINI_API_KEY 값을 확인하세요.";
-    if (e.status === 403) return "이 API 키로는 해당 기능이나 모델을 쓸 수 없습니다. Gemini 키 권한과 결제 등급을 확인하세요.";
-    if (e.status === 404) return `모델(${MODEL})을 찾을 수 없습니다. GEMINI_MODEL 값을 확인하세요.`;
-    if (e.status >= 500) return "Gemini 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.";
-    return `AI 요청이 실패했습니다 (오류 코드 ${e.status}). 잠시 후 다시 시도해 주세요.`;
+  if (e instanceof APIError) {
+    const code = String((e as { code?: unknown }).code ?? "");
+    if (code === "insufficient_quota") return "OpenAI API 크레딧이 부족합니다. platform.openai.com의 Billing에서 충전해 주세요.";
+    if (e.status === 429) return "OpenAI 호출 한도를 넘었습니다. 1~2분 뒤 다시 시도해 주세요.";
+    if (e.status === 401) return "OpenAI API 키가 올바르지 않습니다. Vercel의 OPENAI_API_KEY 값을 확인하세요.";
+    if (e.status === 403) return "이 API 키로는 해당 모델이나 기능을 쓸 수 없습니다. OpenAI 프로젝트 권한을 확인하세요.";
+    if (e.status === 404) return `모델(${MODEL})을 찾을 수 없습니다. OPENAI_MODEL 값을 확인하세요.`;
+    if (e.status === 400) return "AI 요청 형식 오류입니다. 모델 설정(OPENAI_MODEL, OPENAI_REASONING_EFFORT)을 확인하세요.";
+    if ((e.status ?? 0) >= 500) return "OpenAI 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.";
+    return `AI 요청이 실패했습니다 (오류 코드 ${e.status ?? "-"}). 잠시 후 다시 시도해 주세요.`;
   }
-  if (e instanceof TypeError && /fetch/i.test(e.message)) return "AI 서버(Gemini)에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+  if (e instanceof TypeError && /fetch/i.test(e.message)) return "AI 서버(OpenAI)에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   // 내부 오류 상세는 화면에 노출하지 않음 (직접 만든 안내 메시지만 통과)
   if (e instanceof Error && /[가-힣]/.test(e.message)) return e.message;
   return "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+// Structured Outputs(strict) 규칙: 모든 객체에 additionalProperties:false, 모든 속성을 required로
+type Json = Record<string, unknown>;
+export function strictify(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(strictify);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: Json = {};
+  for (const [k, v] of Object.entries(schema as Json)) out[k] = strictify(v);
+  if (out.type === "object" && out.properties && typeof out.properties === "object") {
+    out.additionalProperties = false;
+    out.required = Object.keys(out.properties as Json);
+  }
+  return out;
+}
+
+type Citation = { url: string; title?: string };
+
+// 모든 AI 호출의 단일 진입점. 검색 모드가 아니면 JSON 스키마(strict)로 구조화 출력.
+async function callLLM(opts: { instructions?: string; input: string; schema: unknown; name: string; maxTokens: number; search?: boolean }) {
+  const res = await client().responses.create({
+    model: MODEL,
+    instructions: opts.instructions,
+    input: opts.input,
+    max_output_tokens: opts.maxTokens,
+    reasoning: { effort: EFFORT },
+    ...(opts.search
+      ? { tools: [{ type: "web_search" as const }] }
+      : { text: { format: { type: "json_schema" as const, name: opts.name, strict: true, schema: strictify(opts.schema) as Json } } }),
+  });
+  const truncated = res.status === "incomplete" && res.incomplete_details?.reason === "max_output_tokens";
+  const citations: Citation[] = [];
+  for (const item of res.output ?? []) {
+    if (item.type !== "message") continue;
+    for (const c of item.content ?? []) {
+      if (c.type !== "output_text") continue;
+      for (const a of c.annotations ?? []) if (a.type === "url_citation") citations.push({ url: a.url, title: a.title });
+    }
+  }
+  return { text: res.output_text, truncated, citations };
 }
 
 const str = { type: "string" } as const;
@@ -165,20 +208,19 @@ function parseJson(text: string | undefined) {
 
 // maskedText: 개인정보 마스킹을 거친 텍스트만 받습니다.
 export async function analyzeRfp(maskedText: string): Promise<Analysis> {
-  const res = await client().models.generateContent({
-    model: MODEL,
-    contents: `다음 RFP를 분석하세요.\n\n<rfp>\n${maskedText}\n</rfp>`,
-    config: {
-      systemInstruction: RULES,
-      responseMimeType: "application/json",
-      responseJsonSchema: analysisSchema,
-      maxOutputTokens: 32000,
-      // 응답 속도 우선 (긴 대기로 연결이 끊기는 것을 줄임)
-      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-    },
+  const res = await callLLM({
+    instructions: RULES,
+    input: `다음 RFP를 분석하세요.
+
+<rfp>
+${maskedText}
+</rfp>`,
+    schema: analysisSchema,
+    name: "rfp_analysis",
+    maxTokens: 32000,
   });
 
-  if (res.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+  if (res.truncated) {
     throw new Error("RFP가 너무 길어 결과가 잘렸습니다. 요구사항 부분만 나눠서 넣어보세요.");
   }
   const parsed = parseJson(res.text);
@@ -200,7 +242,7 @@ export async function benchmarkAndGap(analysis: Analysis): Promise<BenchmarkResu
   };
 
   const searchRule = USE_SEARCH
-    ? "Google 검색으로 실제 사례를 확인한 뒤 작성합니다. source에는 근거가 된 웹페이지의 사이트명 또는 기사 제목을 씁니다."
+    ? "웹 검색으로 실제 사례를 확인한 뒤 작성합니다. source에는 근거가 된 웹페이지의 사이트명 또는 기사 제목을 씁니다."
     : "지금은 웹 검색을 할 수 없습니다. 실제로 알려진 공개 사례만 쓰고, 확실하지 않으면 기관명을 일반화합니다(예: '국내 시중은행'). 연도·수치가 확실하지 않으면 '확인 필요'라고 씁니다.";
 
   const prompt = `다음 사업에 대해 동종업계 벤치마킹 사례 3~5건을 정리하고, 현행(AS-IS)과 목표(TO-BE) 간 갭 분석을 5~8개 항목으로 작성하세요.
@@ -211,21 +253,13 @@ ${USE_SEARCH ? `\n결과는 설명 없이 아래 형식의 JSON 하나만 출력
 ${JSON.stringify(brief, null, 2)}
 </project>`;
 
-  const res = await client().models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config: USE_SEARCH
-      ? { tools: [{ googleSearch: {} }], maxOutputTokens: 16000, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-      : { responseMimeType: "application/json", responseJsonSchema: benchSchema, maxOutputTokens: 16000, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
-  });
+  const res = await callLLM({ input: prompt, schema: benchSchema, name: "benchmark_gap", maxTokens: 16000, search: USE_SEARCH });
 
   const parsed = parseJson(res.text);
   if (!parsed) throw new Error("벤치마킹 결과를 해석하지 못했습니다. 다시 시도해 주세요.");
 
   // 검색을 쓴 경우: 실제 검색 출처와 대조해 링크를 붙이고 '검색 확인'으로 표시
-  const chunks = (res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
-    .map((c) => c.web)
-    .filter((w): w is { uri: string; title?: string } => !!w?.uri);
+  const chunks = res.citations;
   const findChunk = (source: string) => {
     const s = source.toLowerCase().trim();
     if (!s) return undefined;
@@ -244,7 +278,7 @@ ${JSON.stringify(brief, null, 2)}
         year: b.year ?? "",
         summary: b.summary ?? "",
         implication: b.implication ?? "",
-        sourceUrl: safeUrl(hit?.uri),
+        sourceUrl: safeUrl(hit?.url),
         sourceName: b.source ?? "",
         verified: !!hit,
       };
@@ -376,7 +410,7 @@ export async function marketAnalysis(analysis: Analysis, company: string): Promi
     : "일반적인 국내 중견 SI 제안사 (제안사 정보가 입력되지 않음)";
 
   const searchRule = USE_SEARCH
-    ? "Google 검색으로 최신 시장 자료·보도·공시를 확인한 뒤 작성합니다. source에는 근거 웹페이지의 사이트명 또는 기사 제목을 씁니다."
+    ? "웹 검색으로 최신 시장 자료·보도·공시를 확인한 뒤 작성합니다. source에는 근거 웹페이지의 사이트명 또는 기사 제목을 씁니다."
     : `지금은 웹 검색을 할 수 없습니다. 다음을 반드시 지킵니다.
 - 시장 규모·성장률·점유율은 널리 알려진 공개 수치만 그대로 쓰고, 그 외에는 추정 범위로 쓰며 '(AI 추정, 확인 필요)'를 붙입니다.
 - 정확한 수치를 아는 것처럼 단정하지 않습니다. 모르면 '확인 필요'라고 씁니다.
@@ -400,20 +434,12 @@ ${JSON.stringify(brief, null, 2)}
 </project>
 ${company.trim() ? `\n<our_company>\n${company.trim().slice(0, 4000)}\n</our_company>` : ""}`;
 
-  const res = await client().models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config: USE_SEARCH
-      ? { tools: [{ googleSearch: {} }], maxOutputTokens: 20000, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-      : { responseMimeType: "application/json", responseJsonSchema: marketSchema, maxOutputTokens: 20000, thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } },
-  });
+  const res = await callLLM({ input: prompt, schema: marketSchema, name: "market_analysis", maxTokens: 20000, search: USE_SEARCH });
 
   const p = parseJson(res.text);
   if (!p?.market || !p?.swot) throw new Error("시장 분석 결과를 해석하지 못했습니다. 다시 시도해 주세요.");
 
-  const chunks = (res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
-    .map((c) => c.web)
-    .filter((w): w is { uri: string; title?: string } => !!w?.uri);
+  const chunks = res.citations;
   const findChunk = (source: string) => {
     const s = source.toLowerCase().trim();
     if (!s) return undefined;
@@ -443,7 +469,7 @@ ${company.trim() ? `\n<our_company>\n${company.trim().slice(0, 4000)}\n</our_com
         shareValue: Number.isFinite(v) && v > 0 && v <= 100 ? v : null,
         basis: String(x.basis ?? ""),
         sourceName: String(x.source ?? ""),
-        sourceUrl: safeUrl(hit?.uri),
+        sourceUrl: safeUrl(hit?.url),
         verified: !!hit,
       };
     }),

@@ -16,14 +16,15 @@ describe("SER-018 보안 헤더", () => {
 });
 
 describe("SER-016 프롬프트 주입 대응", () => {
-  const src = readFileSync("lib/gemini.ts", "utf8");
+  const src = readFileSync("lib/llm.ts", "utf8");
   it("RFP 안의 지시문을 따르지 않고 마스킹 토큰을 복원하지 않도록 지시한다", () => {
     expect(src).toMatch(/지시문.*따르지 않/);
     expect(src).toMatch(/마스킹.*복원/);
   });
-  it("AI에 쓰기 권한 도구를 주지 않는다 (허용: googleSearch 뿐)", () => {
+  it("AI에 쓰기 권한 도구를 주지 않는다 (허용: web_search 뿐)", () => {
     const tools = [...src.matchAll(/tools:\s*\[([^\]]*)\]/g)].map((m) => m[1]);
-    for (const t of tools) expect(t.replace(/\s/g, "")).toBe("{googleSearch:{}}");
+    expect(tools.length).toBeGreaterThan(0);
+    for (const t of tools) expect(t.replace(/\s/g, "")).toBe('{type:"web_search"asconst}');
   });
 });
 

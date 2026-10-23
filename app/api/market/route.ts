@@ -1,4 +1,4 @@
-import { friendlyError, marketAnalysis } from "@/lib/gemini";
+import { friendlyError, marketAnalysis } from "@/lib/llm";
 import { clientIp, errorResponse, GuardError, rateLimit, readJson } from "@/lib/guard";
 import { maskDeep, maskPII } from "@/lib/pii";
 import { streamJson } from "@/lib/stream";

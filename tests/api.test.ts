@@ -1,17 +1,17 @@
-// IFR-003~006, SER-002~006, NFR-003 · API 동작 (가짜 Gemini로 실제 외부 호출 없이 검증)
+// IFR-003~006, SER-002~006, NFR-003 · API 동작 (가짜 LLM로 실제 외부 호출 없이 검증)
 import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { analysis, bench, market, SAMPLE_TEXT } from "./fixtures/data";
 import { jsonRequest, readStreamJson } from "./helpers";
 
-const gemini = vi.hoisted(() => ({
+const llm = vi.hoisted(() => ({
   analyzeRfp: vi.fn(),
   benchmarkAndGap: vi.fn(),
   marketAnalysis: vi.fn(),
   friendlyError: (e: unknown) => (e instanceof Error && /[가-힣]/.test(e.message) ? e.message : "처리 중 오류가 발생했습니다."),
 }));
-vi.mock("@/lib/gemini", () => gemini);
+vi.mock("@/lib/llm", () => llm);
 
 import { POST as analyze } from "@/app/api/analyze/route";
 import { POST as benchmark } from "@/app/api/benchmark/route";
@@ -22,22 +22,22 @@ const PII = /010-1234-5678|010-9999-8888|pm@hanbit|10\.20\.30\.40|110-123-456789
 
 beforeEach(() => {
   vi.clearAllMocks();
-  gemini.analyzeRfp.mockResolvedValue(analysis);
-  gemini.benchmarkAndGap.mockResolvedValue(bench);
-  gemini.marketAnalysis.mockResolvedValue(market);
+  llm.analyzeRfp.mockResolvedValue(analysis);
+  llm.benchmarkAndGap.mockResolvedValue(bench);
+  llm.marketAnalysis.mockResolvedValue(market);
 });
 
 describe("IFR-003 /api/analyze", () => {
   it("SER-004 동의 없이 요청하면 400, AI를 호출하지 않는다", async () => {
     const res = await analyze(jsonRequest("/api/analyze", { text: SAMPLE_TEXT }));
     expect(res.status).toBe(400);
-    expect(gemini.analyzeRfp).not.toHaveBeenCalled();
+    expect(llm.analyzeRfp).not.toHaveBeenCalled();
   });
 
   it("SER-002 텍스트를 서버에서 다시 마스킹한 뒤 AI로 보낸다 (NFR-003 스트리밍 응답)", async () => {
     const res = await analyze(jsonRequest("/api/analyze", { text: SAMPLE_TEXT, consent: true }));
     const body = await readStreamJson(res);
-    const sent = gemini.analyzeRfp.mock.calls[0][0] as string;
+    const sent = llm.analyzeRfp.mock.calls[0][0] as string;
     expect(sent).not.toMatch(PII);
     expect(sent).toContain("SFR-001");
     expect(sent).toContain("85억원");
@@ -49,7 +49,7 @@ describe("IFR-003 /api/analyze", () => {
     const pdf = readFileSync("tests/fixtures/sample-rfp.pdf").toString("base64");
     const res = await analyze(jsonRequest("/api/analyze", { pdfBase64: pdf, consent: true }));
     await readStreamJson(res);
-    const sent = gemini.analyzeRfp.mock.calls[0][0] as string;
+    const sent = llm.analyzeRfp.mock.calls[0][0] as string;
     expect(sent).toContain("SFR-001");
     expect(sent).not.toMatch(/010-1234-5678|pm@bank|10\.0\.0\.12/);
     expect(sent).not.toContain(pdf.slice(0, 40));
@@ -64,11 +64,11 @@ describe("IFR-003 /api/analyze", () => {
     const res = await analyze(jsonRequest("/api/analyze", { text: "가".repeat(150_001), consent: true }));
     const body = await readStreamJson(res);
     expect(body.error).toMatch(/너무 깁니다/);
-    expect(gemini.analyzeRfp).not.toHaveBeenCalled();
+    expect(llm.analyzeRfp).not.toHaveBeenCalled();
   });
 
   it("SER-015 AI 오류 원문은 화면 문구로 바뀐다", async () => {
-    gemini.analyzeRfp.mockRejectedValue(new Error("upstream secret stack trace"));
+    llm.analyzeRfp.mockRejectedValue(new Error("upstream secret stack trace"));
     const body = await readStreamJson(await analyze(jsonRequest("/api/analyze", { text: "SFR-001", consent: true })));
     expect(body.error).not.toContain("secret");
   });
@@ -82,12 +82,12 @@ describe("IFR-003 /api/analyze", () => {
 describe("IFR-004 /api/benchmark · IFR-005 /api/market", () => {
   it("SER-002 1단계 결과 안의 개인정보도 다시 마스킹한다", async () => {
     await readStreamJson(await benchmark(jsonRequest("/api/benchmark", { analysis })));
-    expect(JSON.stringify(gemini.benchmarkAndGap.mock.calls[0][0])).not.toMatch(PII);
+    expect(JSON.stringify(llm.benchmarkAndGap.mock.calls[0][0])).not.toMatch(PII);
   });
 
   it("SER-002 제안사 정보 입력란도 마스킹한다", async () => {
     const body = await readStreamJson(await marketRoute(jsonRequest("/api/market", { analysis, company: "담당자: 홍길동 010-1234-5678" })));
-    const [sentAnalysis, sentCompany] = gemini.marketAnalysis.mock.calls[0];
+    const [sentAnalysis, sentCompany] = llm.marketAnalysis.mock.calls[0];
     expect(JSON.stringify(sentAnalysis) + sentCompany).not.toMatch(PII);
     expect(body.swot.strengths).toEqual(market.swot.strengths);
   });

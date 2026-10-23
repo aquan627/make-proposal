@@ -37,7 +37,7 @@ for (const name of readdirSync(apiDir)) {
   const src = readFileSync(f, "utf8");
   if (name === "logout") continue;
   if (!src.includes("readJson")) fail("A-5/A-6", `app/api/${name}: readJson(출처·크기 검사) 미사용`);
-  if (src.includes("@/lib/gemini")) {
+  if (src.includes("@/lib/llm")) {
     if (!src.includes("rateLimit")) fail("A-4", `app/api/${name}: AI 호출 경로에 rateLimit 없음`);
     if (!/maskPII|maskDeep/.test(src)) fail("P-1/P-2", `app/api/${name}: AI 호출 전 마스킹 없음`);
     if (!src.includes("streamJson")) fail("NFR-003", `app/api/${name}: 긴 AI 요청에 스트리밍(연결 유지) 미사용`);
@@ -47,8 +47,8 @@ const proxySrc = readFileSync(path.join(root, "proxy.ts"), "utf8");
 if (!/matcher:\s*\[\s*"\/\(\(\?!api\/login\|/.test(proxySrc)) fail("A-1", "proxy.ts matcher가 api/login 외 경로를 모두 보호하지 않음");
 
 // P-3 원본 PDF를 외부로 보내는 코드 금지
-const gem = readFileSync(path.join(root, "lib", "gemini.ts"), "utf8");
-if (/application\/pdf|inlineData/.test(gem)) fail("P-3", "lib/gemini.ts: 원본 파일(inlineData/PDF)을 AI로 전송");
+const gem = readFileSync(path.join(root, "lib", "llm.ts"), "utf8");
+if (/application\/pdf|inlineData|input_file|input_image/.test(gem)) fail("P-3", "lib/llm.ts: 원본 파일(PDF·input_file 등)을 AI로 전송");
 
 // S-1 비밀정보: 추적 중인 .env 파일, 커밋 이력의 실제 키
 try {

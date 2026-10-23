@@ -1,4 +1,4 @@
-import { analyzeRfp, friendlyError } from "@/lib/gemini";
+import { analyzeRfp, friendlyError } from "@/lib/llm";
 import { clientIp, errorResponse, GuardError, rateLimit, readJson } from "@/lib/guard";
 import { maskPII, reportTotal } from "@/lib/pii";
 import { extractPdfText } from "@/lib/pdf";
