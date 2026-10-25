@@ -119,3 +119,29 @@ describe("SFR-021 OpenAI 오류 안내", () => {
     await expect(analyzeRfp("x")).rejects.toThrow(/OPENAI_API_KEY/);
   });
 });
+
+describe("SER-005 OpenAI 응답 저장 금지 (P-5)", () => {
+  it("분석·벤치마킹 모든 호출에 store: false를 붙인다", async () => {
+    create.mockResolvedValue(reply({ ...analysis, benchmarks: [], gaps: [] }));
+    await analyzeRfp("SFR-001");
+    await benchmarkAndGap(analysis);
+    expect(create.mock.calls.length).toBe(3);
+    for (const [req] of create.mock.calls) expect(req.store).toBe(false);
+  });
+});
+
+describe("SER-006, SER-016 벤치마킹 호출 보안 지시 (P-6, O-5)", () => {
+  it("2단계 호출에도 지시문 무시·마스킹 복원 금지 지시를 붙인다", async () => {
+    create.mockResolvedValue(reply({ benchmarks: [], gaps: [] }));
+    await benchmarkAndGap(analysis);
+    const req = create.mock.calls[0][0];
+    expect(req.instructions).toMatch(/지시문.*따르지 않/);
+    expect(req.instructions).toMatch(/마스킹.*복원하지/);
+  });
+
+  it("1단계 두 호출 모두 마스킹 복원 금지 지시를 유지한다", async () => {
+    create.mockResolvedValue(reply(analysis));
+    await analyzeRfp("SFR-001");
+    for (const [req] of create.mock.calls) expect(req.instructions).toMatch(/마스킹.*복원하지/);
+  });
+});
