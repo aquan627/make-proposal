@@ -11,7 +11,7 @@
 | P-2 | 이중 마스킹 | 브라우저에서 1차, 서버(`/api/analyze`, `/api/benchmark`)에서 2차 적용 | `app/page.tsx`, `app/api/*` |
 | P-3 | 원본 PDF 외부 전송 금지 | PDF는 서버에서 텍스트만 추출(`unpdf`) → 마스킹 → 전송. 원본은 저장·전송하지 않음 | `lib/pdf.ts` |
 | P-4 | 사용자 고지·동의 | OpenAI API 전송과 데이터 정책(학습 미사용, 오남용 점검용 최대 30일 보관)을 고지하고 동의 체크 없이는 분석 불가 | `app/page.tsx`, `/api/analyze` |
-| P-5 | 서버 저장·로그 금지 | RFP 본문, AI 응답, 비밀번호를 DB·파일·로그에 남기지 않음. 오류 로그는 상태 코드만 | `lib/guard.ts` |
+| P-5 | 서버 저장·로그 금지 | RFP 본문, AI 응답, 비밀번호를 DB·파일·로그에 남기지 않음. OpenAI Responses API는 `store: false`로 호출(기본값 true면 최소 30일 저장). 오류 로그는 상태 코드만 | `lib/guard.ts`, `lib/llm.ts` |
 | P-6 | 마스킹 토큰 복원 금지 | 프롬프트에 "[OO 마스킹] 값을 추측·복원하지 말 것" 명시 | `lib/llm.ts` |
 | P-7 | 샘플 데이터 | 저장소의 샘플 RFP·예시는 가상 기관·가상 수치만 사용 | `lib/sample.ts` |
 
@@ -41,7 +41,7 @@
 
 | ID | 점검 항목 | 기준 |
 |---|---|---|
-| S-1 | 비밀정보 커밋 금지 | `.env*`는 gitignore. 커밋 이력에 `AIza`, `sk-ant` 등 실제 키 없음 (`git log -p` 검색) |
+| S-1 | 비밀정보 커밋 금지 | `.env*`는 gitignore. 커밋 이력에 `sk-proj-`·`sk-`(OpenAI), `AIza`, `sk-ant` 등 실제 키 없음 (`git log -p` 검색) |
 | S-2 | 키는 서버 전용 | `OPENAI_API_KEY`, `APP_PASSWORD`에 `NEXT_PUBLIC_` 접두어 금지 |
 | S-3 | 보안 헤더 | CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS, API no-store (`next.config.ts`) |
 | S-4 | 의존성 취약점 | `npm audit --omit=dev` 결과 high/critical 0건. moderate는 사유 기록 |
@@ -59,6 +59,7 @@
 
 | 날짜 | 점검자 | 결과 | 조치 |
 |---|---|---|---|
+| 2026-10-25 | Claude (정기 점검) | 자동 점검 통과(테스트·스캔·audit 0건·빌드·trace strict), 수동 검토 높음 1·중간 2·낮음 11건. OpenAI 데이터 정책(학습 미사용·오남용 점검 최대 30일) 변동 없음 | 높음: Responses API `store: false` 누락으로 입력·응답이 최소 30일 저장되던 문제 수정. 중간: 벤치마킹 호출에 주입 방지·마스킹 복원 금지 지시 추가, 보안 스캔에 OpenAI 키 패턴·`store: false` 규칙 추가. 회귀 테스트 3개. 낮음 11건은 PR 본문에 기록 |
 | 2026-10-23 | Claude (기능 제거 점검) | 시장 분석 기능 제거 | `/api/market`·제안사 정보 입력 삭제로 외부 전송 경로 축소, 크기 제한·호출 수 기준 갱신 |
 | 2026-10-23 | Claude (LLM 전환 점검) | Gemini → OpenAI 전환 | 마스킹·가드·스트리밍 유지 확인, 동의 문구와 P-4·S-7을 OpenAI 데이터 정책으로 갱신, 정적 스캔에 input_file/input_image 전송 금지 추가 |
 | 2026-10-23 | Claude (하네스 구축) | 테스트 64개·보안 스캔·CI 추가 | 정적 규칙(P-1~3, P-5, A-1, A-4~6, S-1~2, NFR-003)을 security-scan으로 자동화, 보안 요구사항 전부 테스트 연결 |

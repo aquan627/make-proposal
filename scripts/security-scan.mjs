@@ -49,13 +49,15 @@ if (!/matcher:\s*\[\s*"\/\(\(\?!api\/login\|/.test(proxySrc)) fail("A-1", "proxy
 // P-3 원본 PDF를 외부로 보내는 코드 금지
 const gem = readFileSync(path.join(root, "lib", "llm.ts"), "utf8");
 if (/application\/pdf|inlineData|input_file|input_image/.test(gem)) fail("P-3", "lib/llm.ts: 원본 파일(PDF·input_file 등)을 AI로 전송");
+// P-5: Responses API store 기본값(true)이면 입력·응답이 OpenAI에 저장됨
+if (!/store:\s*false/.test(gem) || /store:\s*true/.test(gem)) fail("P-5", "lib/llm.ts: responses.create에 store: false가 없음");
 
 // S-1 비밀정보: 추적 중인 .env 파일, 커밋 이력의 실제 키
 try {
   const tracked = execSync("git ls-files", { encoding: "utf8" }).split("\n");
   for (const t of tracked) if (/(^|\/)\.env(\.|$)/.test(t) && !t.endsWith(".env.example")) fail("S-1", `추적 중인 비밀 파일: ${t}`);
   const hist = execSync("git log -p --all", { encoding: "utf8", maxBuffer: 1 << 28 });
-  for (const re of [/AIza[0-9A-Za-z_-]{35}/, /sk-ant-[A-Za-z0-9_-]{20,}/, /ghp_[A-Za-z0-9]{36}/]) {
+  for (const re of [/AIza[0-9A-Za-z_-]{35}/, /sk-ant-[A-Za-z0-9_-]{20,}/, /ghp_[A-Za-z0-9]{36}/, /sk-(?:proj-|svcacct-|admin-)[A-Za-z0-9_-]{40,}/, /sk-[A-Za-z0-9]{48}/]) {
     if (re.test(hist)) fail("S-1", `커밋 이력에 실제 키 형식 발견: ${re}`);
   }
 } catch (e) {
