@@ -21,10 +21,10 @@ describe("SER-016 프롬프트 주입 대응", () => {
     expect(src).toMatch(/지시문.*따르지 않/);
     expect(src).toMatch(/마스킹.*복원/);
   });
-  it("AI에 쓰기 권한 도구를 주지 않는다 (허용: web_search 뿐)", () => {
+  it("AI에 쓰기 권한 도구를 주지 않는다 (허용: googleSearch 뿐)", () => {
     const tools = [...src.matchAll(/tools:\s*\[([^\]]*)\]/g)].map((m) => m[1]);
     expect(tools.length).toBeGreaterThan(0);
-    for (const t of tools) expect(t.replace(/\s/g, "")).toBe('{type:"web_search"asconst}');
+    for (const t of tools) expect(t.replace(/\s/g, "")).toBe("{googleSearch:{}}");
   });
 });
 

@@ -1,6 +1,6 @@
 # RFP Analyzer — 작업 규칙
 
-금융권 SI 제안용 RFP 분석 앱 (Next.js 16 + OpenAI API + ExcelJS, Vercel 배포).
+금융권 SI 제안용 RFP 분석 앱 (Next.js 16 + Google Gemini API + ExcelJS, Vercel 배포).
 요구사항 원본: `docs/REQUIREMENTS.md` · 보안 기준: `SECURITY.md`
 대외비 RFP와 개인정보를 다룰 수 있으므로 **모든 변경은 `SECURITY.md` 기준을 지켜야 합니다.**
 
@@ -58,8 +58,8 @@ npm peer 의존성 해석 오류 때문에 `.npmrc`에 `legacy-peer-deps=true`�
 
 | 이름 | 필수 | 설명 |
 |---|---|---|
-| `OPENAI_API_KEY` | O | platform.openai.com에서 발급 (Billing 크레딧 필요) |
+| `GEMINI_API_KEY` | O | aistudio.google.com에서 발급 |
 | `APP_PASSWORD` | O | 접근 비밀번호, 8자 이상. 미설정 시 앱 잠김 |
-| `OPENAI_MODEL` | | 기본 `gpt-6.1-sol` |
-| `OPENAI_SEARCH` | | `on`이면 웹 검색 기반 벤치마킹 |
-| `OPENAI_REASONING_EFFORT` | | 추론 수준, 기본 `low` |
+| `GEMINI_MODEL` | | 기본 `gemini-3.8-flash` |
+| `GEMINI_SEARCH` | | `on`이면 Google 검색 기반 벤치마킹 (유료 키) |
+| `GEMINI_THINKING_LEVEL` | | 사고 수준, 기본 `low` |

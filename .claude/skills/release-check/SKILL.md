@@ -23,4 +23,4 @@ description: RFP Analyzer 변경을 GitHub에 올리고 Vercel 배포까지 확�
 1. GitHub Actions `CI`가 통과했는지 확인한다.
 2. Vercel 최신 배포가 READY이고 커밋이 일치하는지 확인한다 (deploy-checker 에이전트).
 3. 환경변수를 새로 추가했다면 **Production 체크**와 재배포를 확인한다.
-4. 사용자에게 새로고침 후 샘플 RFP로 1회 실행해 달라고 요청한다. 실제 OpenAI 호출은 자동 테스트가 대신하지 못한다.
+4. 사용자에게 새로고침 후 샘플 RFP로 1회 실행해 달라고 요청한다. 실제 Gemini 호출은 자동 테스트가 대신하지 못한다.

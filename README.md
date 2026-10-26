@@ -11,7 +11,7 @@
 | 5.갭분석 | AS-IS / TO-BE / Gap / 개선과제 | 벤치마킹 결과 기반 |
 | 6.추진전략 | 전략·연계 요구사항·차별화 | RFP 분석 |
 
-AI는 OpenAI API(Responses API, 구조화 출력)를 사용합니다. API 키에 결제 크레딧이 있어야 동작합니다. 기본은 웹 검색 없이 작성하며, 벤치마킹은 AI 추정 초안으로 "확인 필요"가 표시됩니다. `OPENAI_SEARCH=on`을 설정하면 웹 검색 결과를 근거로 작성하고 출처 링크를 붙입니다(검색 호출 비용 추가).
+AI는 Google Gemini API(@google/genai, JSON 스키마 구조화 출력)를 사용합니다. 기본은 웹 검색 없이 작성하며, 벤치마킹은 AI 추정 초안으로 "확인 필요"가 표시됩니다. `GEMINI_SEARCH=on`을 설정하면 Google 검색 결과를 근거로 작성하고 출처 링크를 붙입니다(유료 등급 키 필요).
 
 ## 배포 (GitHub → Vercel)
 
@@ -22,20 +22,20 @@ AI는 OpenAI API(Responses API, 구조화 출력)를 사용합니다. API 키에
    ```
 2. vercel.com → Add New → Project → 해당 저장소 Import (프레임워크는 Next.js 자동 인식)
 3. Environment Variables 추가 → Deploy
-   - `OPENAI_API_KEY`: https://platform.openai.com/api-keys 에서 발급 (Billing 크레딧 필요)
+   - `GEMINI_API_KEY`: https://aistudio.google.com/apikey 에서 발급
    - `APP_PASSWORD`: 팀에 공유할 접근 비밀번호 (8자 이상, 미설정 시 앱이 잠김)
 
 선택 환경변수
-- `OPENAI_MODEL`: 모델 변경 (기본 `gpt-6.1-sol`)
-- `OPENAI_REASONING_EFFORT`: 추론 수준 (기본 `low`)
-- `OPENAI_SEARCH=on`: 웹 검색 기반 벤치마킹
+- `GEMINI_MODEL`: 모델 변경 (기본 `gemini-3.8-flash`)
+- `GEMINI_THINKING_LEVEL`: 사고 수준 low/medium/high (기본 `low`)
+- `GEMINI_SEARCH=on`: Google 검색 기반 벤치마킹 (유료 키)
 
 ## 보안
 
 - 외부 AI 전송 전 개인정보(주민번호·전화·이메일·계좌·카드·IP·성명 등)를 자동 마스킹
 - PDF는 서버에서 글자만 추출해 마스킹 후 전송, 원본은 외부로 보내지 않음
 - 비밀번호 로그인, 호출 횟수 제한, CSRF 차단, 보안 헤더
-- **OpenAI는 API 입력을 학습에 쓰지 않지만 오남용 점검용으로 최대 30일 보관합니다. 대외비 RFP는 회사 보안 정책을 확인한 뒤 사용하세요.**
+- **Gemini 무료 등급 키는 입력이 Google 서비스 개선과 사람 검토에 쓰일 수 있습니다. 대외비 RFP는 유료 등급 키와 회사 보안 정책을 확인한 뒤 사용하세요.**
 - 점검 기준과 이력: `SECURITY.md`
 
 ## 개발 하네스
@@ -74,7 +74,7 @@ lib/sample.ts             데모용 가상 RFP
 
 ## 제약사항
 
-- OpenAI 계정 등급별 호출 한도가 있어, 연속 실행 시 잠시 기다려야 할 수 있음
+- Gemini 키 등급별 분당·일일 호출 한도가 있어, 연속 실행 시 잠시 기다려야 할 수 있음
 - PDF는 3MB 이하 (Vercel 요청 크기 제한 4.5MB). 큰 RFP는 요구사항 부분 텍스트를 붙여넣기
 - 분석 1~2분, 벤치마킹 1~2분 소요. 각 API는 최대 300초로 설정
 - AI가 생성한 초안이므로 제안서 반영 전 검토 필요. 대외비 RFP는 사내 보안 정책 확인 후 사용

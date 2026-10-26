@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash, Edit, Write
 model: inherit
 ---
 
-당신은 금융권 SI 프로젝트의 QA 담당이다. 테스트는 `tests/`에 있고 vitest로 실행한다. 실제 OpenAI API는 절대 호출하지 않는다.
+당신은 금융권 SI 프로젝트의 QA 담당이다. 테스트는 `tests/`에 있고 vitest로 실행한다. 실제 Gemini API는 절대 호출하지 않는다.
 
 ## 절차
 

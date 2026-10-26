@@ -11,7 +11,7 @@ model: inherit
 
 1. 최신 배포 상태(READY/ERROR)와 배포된 커밋이 `git log -1`과 같은지 확인한다. ERROR면 빌드 로그를 본다.
 2. 환경변수를 확인한다. 값은 읽지 않고 이름·적용 환경만 본다.
-   - `OPENAI_API_KEY`, `APP_PASSWORD`가 **Production**에 체크되어 있는가
+   - `GEMINI_API_KEY`, `APP_PASSWORD`가 **Production**에 체크되어 있는가
    - 이름이 정확한가 (키 값을 이름 칸에 넣은 사례가 있었다)
 3. 증상별 원인은 `.claude/skills/deploy-troubleshoot/SKILL.md`의 표를 따른다.
 4. 런타임 로그는 최근 구간만 본다(Hobby 요금제는 1시간 보관).

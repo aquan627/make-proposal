@@ -142,7 +142,7 @@ export default function Home() {
         <label className="consent">
           <input id="consent" type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={busy} />
           <span>
-            입력 내용이 OpenAI API로 전송됨을 확인했습니다. OpenAI는 API 입력을 모델 학습에 쓰지 않지만 오남용 점검을 위해 최대 30일 보관할 수 있으므로, 대외비 RFP는 회사 보안 정책에 따라 사용합니다.
+            입력 내용이 Google Gemini API로 전송됨을 확인했습니다. 무료 등급 키는 입력이 Google 서비스 개선과 사람 검토에 쓰일 수 있고(유료 등급은 학습 미사용), 대외비 RFP는 유료 키와 회사 보안 정책이 허용하는 범위에서만 사용합니다.
           </span>
         </label>
         {error && <p className="error">{error}</p>}
