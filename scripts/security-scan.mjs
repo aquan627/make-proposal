@@ -50,6 +50,11 @@ if (!/matcher:\s*\[\s*"\/\(\(\?!api\/login\|/.test(proxySrc)) fail("A-1", "proxy
 const gem = readFileSync(path.join(root, "lib", "llm.ts"), "utf8");
 if (/application\/pdf|inlineData|input_file|input_image/.test(gem)) fail("P-3", "lib/llm.ts: 원본 파일(PDF·input_file 등)을 AI로 전송");
 
+// O-5·P-6 모든 AI 호출에 보안 지시(instructions) 필수
+for (const m of gem.matchAll(/callLLM\(\{([^}]*)/g)) {
+  if (!/\binstructions:/.test(m[1])) fail("O-5/P-6", `lib/llm.ts: 보안 지시 없는 AI 호출: callLLM({${m[1].slice(0, 40)}`);
+}
+
 // S-1 비밀정보: 추적 중인 .env 파일, 커밋 이력의 실제 키
 try {
   const tracked = execSync("git ls-files", { encoding: "utf8" }).split("\n");
