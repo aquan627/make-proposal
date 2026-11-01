@@ -94,6 +94,14 @@ describe("IFR-008 Google 검색 모드", () => {
     vi.unstubAllEnvs();
   });
 
+  it("SER-006, SER-016 벤치마킹 호출에도 지시문 무시·마스킹 복원 금지 보안 지시를 붙인다", async () => {
+    generateContent.mockResolvedValue(reply({ benchmarks: [], gaps: [] }));
+    await benchmarkAndGap(analysis);
+    const sys = generateContent.mock.calls[0][0].config.systemInstruction;
+    expect(sys).toMatch(/지시문.*따르지 않/);
+    expect(sys).toMatch(/마스킹.*복원하지/);
+  });
+
   it("기본(검색 끔)은 도구 없이 구조화 출력, 결과는 searched=false", async () => {
     generateContent.mockResolvedValue(reply({ benchmarks: [], gaps: [] }));
     const out = await benchmarkAndGap(analysis);
