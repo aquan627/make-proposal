@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     if (!rateLimit("ai:" + clientIp(req), 20, 10 * 60 * 1000)) {
       throw new GuardError("요청이 너무 많습니다. 몇 분 뒤 다시 시도해 주세요.", 429);
     }
-    const body = await readJson<{ analysis?: Analysis }>(req, 300_000);
+    const body = await readJson<{ analysis?: Analysis; consent?: boolean }>(req, 300_000);
+    if (body.consent !== true) throw new GuardError("데이터 전송 안내에 동의해야 분석할 수 있습니다.", 400);
     if (!body.analysis?.overview || !Array.isArray(body.analysis.asis) || !Array.isArray(body.analysis.strategies)) {
       throw new GuardError("분석 결과 형식이 올바르지 않습니다.", 400);
     }

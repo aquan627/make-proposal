@@ -78,13 +78,19 @@ describe("IFR-003 /api/analyze", () => {
 
 describe("IFR-004 /api/benchmark", () => {
   it("SER-002 1단계 결과 안의 개인정보도 다시 마스킹한다", async () => {
-    const body = await readStreamJson(await benchmark(jsonRequest("/api/benchmark", { analysis })));
+    const body = await readStreamJson(await benchmark(jsonRequest("/api/benchmark", { analysis, consent: true })));
     expect(JSON.stringify(llm.benchmarkAndGap.mock.calls[0][0])).not.toMatch(PII);
     expect(body.gaps).toEqual(bench.gaps);
   });
 
+  it("SER-004 동의 없이 벤치마킹을 요청하면 400, AI를 호출하지 않는다", async () => {
+    const res = await benchmark(jsonRequest("/api/benchmark", { analysis }));
+    expect(res.status).toBe(400);
+    expect(llm.benchmarkAndGap).not.toHaveBeenCalled();
+  });
+
   it("형식이 잘못된 1단계 결과는 400", async () => {
-    expect((await benchmark(jsonRequest("/api/benchmark", { analysis: {} }))).status).toBe(400);
+    expect((await benchmark(jsonRequest("/api/benchmark", { analysis: {}, consent: true }))).status).toBe(400);
   });
 });
 
@@ -113,6 +119,15 @@ describe("IFR-006 /api/excel · SFR-020", () => {
     const cell = wb.getWorksheet("2.요구사항분석")!.getCell("D4");
     expect(typeof cell.value).toBe("string");
     expect(String(cell.value).startsWith("'=")).toBe(true);
+  });
+
+  it("SER-014 -, 탭, CR로 시작하는 수식형 값도 문자로 고정하고 글머리표는 그대로 둔다", async () => {
+    const { cellText } = await import("@/lib/excel");
+    expect(cellText("-2+3")).toBe("'-2+3");
+    expect(cellText("\t=1+1")).toBe("'\t=1+1");
+    expect(cellText("\r=1+1")).toBe("'\r=1+1");
+    expect(cellText("- 항목")).toBe("- 항목");
+    expect(cellText("일반 문장")).toBe("일반 문장");
   });
 
   it("SER-017 검색 미사용 시 벤치마킹 시트 제목에 출처 확인 필요 표시", async () => {

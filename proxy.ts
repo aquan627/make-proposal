@@ -4,6 +4,8 @@ import { AUTH_COOKIE, authConfigured, verifySession } from "@/lib/auth";
 // 로그인하지 않은 사용자는 화면과 API 모두 접근할 수 없습니다.
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // 로그인 API만 정확히 일치할 때 통과 (접두어 일치로 /api/login-x 같은 경로가 빠지지 않게, A-1)
+  if (pathname === "/api/login") return NextResponse.next();
   const isApi = pathname.startsWith("/api/");
 
   if (!authConfigured()) {
@@ -21,5 +23,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/login|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

@@ -62,7 +62,7 @@ export default function Home() {
       setAnalysis(rest);
       setStep("benchmarking");
       try {
-        const r2 = await post("/api/benchmark", { analysis: r1 });
+        const r2 = await post("/api/benchmark", { analysis: r1, consent });
         setBench(r2);
       } catch (e) {
         setBenchError(msg(e));

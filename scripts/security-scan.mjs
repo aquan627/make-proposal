@@ -44,7 +44,8 @@ for (const name of readdirSync(apiDir)) {
   }
 }
 const proxySrc = readFileSync(path.join(root, "proxy.ts"), "utf8");
-if (!/matcher:\s*\[\s*"\/\(\(\?!api\/login\|/.test(proxySrc)) fail("A-1", "proxy.ts matcher가 api/login 외 경로를 모두 보호하지 않음");
+if (!/matcher:\s*\[\s*"\/\(\(\?!_next\/static\|_next\/image\|favicon\.ico\)\.\*\)"\s*\]/.test(proxySrc)) fail("A-1", "proxy.ts matcher가 정적 자원 외 경로를 모두 보호하지 않음");
+if (!/pathname === "\/api\/login"\) return NextResponse\.next\(\)/.test(proxySrc) || /startsWith\("\/api\/login/.test(proxySrc)) fail("A-1", "proxy.ts: 로그인 API 예외는 정확히 일치(===)로만 허용");
 
 // P-3 원본 PDF를 외부로 보내는 코드 금지
 const gem = readFileSync(path.join(root, "lib", "llm.ts"), "utf8");

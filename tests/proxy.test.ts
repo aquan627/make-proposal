@@ -22,6 +22,13 @@ describe("SFR-001 로그인 보호", () => {
     expect((await proxy(req("/"))).headers.get("location")).toMatch(/\/login$/);
   });
 
+  it("로그인 API는 정확히 일치할 때만 세션 없이 통과하고, 비슷한 경로는 보호한다", async () => {
+    vi.stubEnv("APP_PASSWORD", "hackathon-2026");
+    expect((await proxy(req("/api/login"))).headers.get("x-middleware-next")).toBe("1");
+    expect((await proxy(req("/api/login-x"))).status).toBe(401);
+    expect((await proxy(req("/api/login/extra"))).status).toBe(401);
+  });
+
   it("유효한 세션이면 통과한다", async () => {
     vi.stubEnv("APP_PASSWORD", "hackathon-2026");
     const res = await proxy(req("/api/analyze", await createSession()));
