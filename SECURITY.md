@@ -10,7 +10,7 @@
 | P-1 | 외부 AI 전송 전 개인정보 마스킹 | 주민·외국인등록번호, 여권, 운전면허, 카드(Luhn), 전화, 이메일, 사업자번호, 계좌, IP, 직함·라벨 붙은 성명을 마스킹 | `lib/pii.ts` |
 | P-2 | 이중 마스킹 | 브라우저에서 1차, 서버(`/api/analyze`, `/api/benchmark`)에서 2차 적용 | `app/page.tsx`, `app/api/*` |
 | P-3 | 원본 PDF 외부 전송 금지 | PDF는 서버에서 텍스트만 추출(`unpdf`) → 마스킹 → 전송. 원본은 저장·전송하지 않음 | `lib/pdf.ts` |
-| P-4 | 사용자 고지·동의 | Gemini API 전송과 데이터 정책(무료 등급은 Google 개선·사람 검토에 사용 가능, 유료 등급은 학습 미사용)을 고지하고 동의 체크 없이는 분석 불가 | `app/page.tsx`, `/api/analyze` |
+| P-4 | 사용자 고지·동의 | Gemini API 전송과 데이터 정책(무료 등급은 Google 개선·사람 검토에 사용 가능, 유료 등급은 학습 미사용·오남용 점검용 한시 기록)을 고지하고 동의 체크 없이는 분석 불가(1·2단계 API 모두 서버에서 확인) | `app/page.tsx`, `/api/analyze`, `/api/benchmark` |
 | P-5 | 서버 저장·로그 금지 | RFP 본문, AI 응답, 비밀번호를 DB·파일·로그에 남기지 않음. 오류 로그는 상태 코드만 | `lib/guard.ts` |
 | P-6 | 마스킹 토큰 복원 금지 | 프롬프트에 "[OO 마스킹] 값을 추측·복원하지 말 것" 명시 | `lib/llm.ts` |
 | P-7 | 샘플 데이터 | 저장소의 샘플 RFP·예시는 가상 기관·가상 수치만 사용 | `lib/sample.ts` |
@@ -32,7 +32,7 @@
 |---|---|---|---|
 | O-1 | 링크 XSS | AI가 만든 URL은 http/https만 허용(`safeUrl`), `rel="noopener noreferrer"` | `lib/pii.ts`, `app/page.tsx` |
 | O-2 | HTML 삽입 금지 | `dangerouslySetInnerHTML` 사용 금지 (React 기본 이스케이프 유지) | 전체 |
-| O-3 | 엑셀 수식 주입 | `=`, `+`, `@`로 시작하는 값은 문자로 고정 | `lib/excel.ts` |
+| O-3 | 엑셀 수식 주입 | `=`, `+`, `@`, 탭, CR, 공백이 아닌 문자가 이어지는 `-`로 시작하는 값은 문자로 고정 | `lib/excel.ts` |
 | O-4 | 오류 메시지 | 외부 API 원문·스택을 화면에 노출하지 않음 | `lib/llm.ts`, `lib/guard.ts` |
 | O-6 | AI 추정 수치 표시 | 검색 미사용 시 벤치마킹 사례를 "출처 확인 필요"로 화면·엑셀에 표시. 사실처럼 단정하지 않음 | `lib/llm.ts`, `app/page.tsx`, `lib/excel.ts` |
 | O-5 | 프롬프트 주입 | RFP 본문 속 지시문을 따르지 않도록 시스템 지시 명시. AI 도구는 googleSearch만 허용 | `lib/llm.ts` |
@@ -41,7 +41,7 @@
 
 | ID | 점검 항목 | 기준 |
 |---|---|---|
-| S-1 | 비밀정보 커밋 금지 | `.env*`는 gitignore. 커밋 이력에 `AIza`, `sk-ant` 등 실제 키 없음 (`git log -p` 검색) |
+| S-1 | 비밀정보 커밋 금지 | `.env*`는 gitignore(`.env.example`만 예외). 커밋 이력에 `AIza`, `sk-ant` 등 실제 키 없음 (`git log -p` 검색) |
 | S-2 | 키는 서버 전용 | `GEMINI_API_KEY`, `APP_PASSWORD`에 `NEXT_PUBLIC_` 접두어 금지 |
 | S-3 | 보안 헤더 | CSP, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, HSTS, API no-store (`next.config.ts`) |
 | S-4 | 의존성 취약점 | `npm audit --omit=dev` 결과 high/critical 0건. moderate는 사유 기록 |
@@ -59,6 +59,8 @@
 
 | 날짜 | 점검자 | 결과 | 조치 |
 |---|---|---|---|
+| 2026-11-08 | Claude (정기 점검) | 긴급·높음 0·중간 6·낮음 8 (main 신규 커밋 없음, 자동 점검 통과, prod 의존성 취약점 0건, Gemini 약관 원문은 접근 권한 문제로 확인 못 함) | 2026-11-01 수정(PR #2) 위에 누적: 벤치마킹 API 서버 측 동의 확인(P-4), 로그인 API 예외를 정확히 일치로 제한(A-1), 수식 주입 차단 문자 확대(O-3), `.env*` 전체 gitignore(S-1), 회귀 테스트 4개. 나머지 중간 2·낮음 8건은 후속 과제 |
+| 2026-11-01 | Claude (정기 점검) | 높음 1·중간 3·낮음 5 (자동 점검 통과, 약관 변경 없음: 2026-04-28 최종 수정) | 벤치마킹 호출 보안 지시(O-5·P-6) 복구 + 회귀 테스트·정적 규칙(모든 AI 호출 instructions 필수), 동의 문구에 유료 등급 오남용 점검 기록 고지 추가(P-4), dev 의존성 vite 7.3.7(high). moderate 8건은 exceljs→archiver→minimatch ReDoS, 엑셀 생성에 사용자 입력 glob 미사용·비파괴 패치 없음으로 유지. 나머지는 PR 본문에 후속 과제로 기록 |
 | 2026-10-26 | Claude (LLM 전환 점검) | OpenAI → Gemini 재전환 | 마스킹·가드·스트리밍·병렬 호출 유지, SDK 기본 재시도(5회) 끄고 250초 제한, 동의 문구·P-4·S-7을 Gemini 정책으로 갱신 |
 | 2026-10-23 | Claude (기능 제거 점검) | 시장 분석 기능 제거 | `/api/market`·제안사 정보 입력 삭제로 외부 전송 경로 축소, 크기 제한·호출 수 기준 갱신 |
 | 2026-10-23 | Claude (LLM 전환 점검) | Gemini → OpenAI 전환 | 마스킹·가드·스트리밍 유지 확인, 동의 문구와 P-4·S-7을 OpenAI 데이터 정책으로 갱신, 정적 스캔에 input_file/input_image 전송 금지 추가 |

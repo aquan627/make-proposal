@@ -46,10 +46,11 @@ function table(wb: ExcelJS.Workbook, name: string, title: string, cols: Col[], r
   return ws;
 }
 
-// 엑셀 수식으로 해석될 수 있는 값(=, +, @ 로 시작)은 문자로 고정
-function cellText(v: unknown) {
+// 엑셀 수식으로 해석될 수 있는 값(=, +, @, 탭, CR, 공백이 아닌 문자가 이어지는 -)은 문자로 고정
+// "- 항목" 같은 글머리표는 그대로 두고 "-2+3", "-cmd" 같은 값만 막는다 (O-3)
+export function cellText(v: unknown) {
   const s = typeof v === "string" ? v : v == null ? "" : String(v);
-  return /^[=+@]/.test(s) ? "'" + s : s;
+  return /^([=+@\t\r]|-(?!\s|$))/.test(s) ? "'" + s : s;
 }
 function clean<T extends object>(rows: T[] | undefined): Record<string, unknown>[] {
   return (rows ?? []).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === "number" ? v : cellText(v)])));

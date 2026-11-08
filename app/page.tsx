@@ -62,7 +62,7 @@ export default function Home() {
       setAnalysis(rest);
       setStep("benchmarking");
       try {
-        const r2 = await post("/api/benchmark", { analysis: r1 });
+        const r2 = await post("/api/benchmark", { analysis: r1, consent });
         setBench(r2);
       } catch (e) {
         setBenchError(msg(e));
@@ -142,7 +142,7 @@ export default function Home() {
         <label className="consent">
           <input id="consent" type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={busy} />
           <span>
-            입력 내용이 Google Gemini API로 전송됨을 확인했습니다. 무료 등급 키는 입력이 Google 서비스 개선과 사람 검토에 쓰일 수 있고(유료 등급은 학습 미사용), 대외비 RFP는 유료 키와 회사 보안 정책이 허용하는 범위에서만 사용합니다.
+            입력 내용이 Google Gemini API로 전송됨을 확인했습니다. 무료 등급 키는 입력이 Google 서비스 개선과 사람 검토에 쓰일 수 있고, 유료 등급은 학습에 쓰이지 않으나 오남용 점검을 위해 일정 기간 기록될 수 있으며, 대외비 RFP는 유료 키와 회사 보안 정책이 허용하는 범위에서만 사용합니다.
           </span>
         </label>
         {error && <p className="error">{error}</p>}
